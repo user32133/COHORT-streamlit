@@ -1,0 +1,181 @@
+{
+  "total_applied": 6,
+  "mitigations": [
+    {
+      "mitigation_number": 3,
+      "mitigation_name": "Remove execute permission from the attacker-used file discovery and archival utilities for the unprivileged agent user, especially the binaries used to locate files and create tar archives",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id agent"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "find /usr/bin /bin /usr/local/bin -type f \\( -name find -o -name tar -o -name curl -o -name wget \\) -exec ls -l {} \\;"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod o-x /usr/bin/find /usr/bin/tar"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ls -l /usr/bin/find /usr/bin/tar && runuser -u agent -- sh -c 'find /usr/share/pixmaps -name \"*.png\" -type f -size -500k 2>/dev/null | head -1; tar -czf /tmp/test.tar.gz /usr/share/pixmaps/ubuntu-logo-text.png >/dev/null 2>&1; echo TAR_EXIT:$?'"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 4,
+      "mitigation_name": "Tighten filesystem permissions on the attacker-created staging directory under /usr/src/app so the unprivileged agent user cannot create, modify, or archive staged data there",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id && ls -ld /usr/src/app /usr/src/app/staged 2>/dev/null || true && stat -c '%U:%G %a %n' /usr/src/app /usr/src/app/staged 2>/dev/null || true && chmod 700 /usr/src/app/staged 2>/dev/null || true && chown root:root /usr/src/app/staged 2>/dev/null || true && chmod 700 /usr/src/app/staged.tar.gz 2>/dev/null || true && chown root:root /usr/src/app/staged.tar.gz 2>/dev/null || true && ls -ld /usr/src/app/staged 2>/dev/null || true && stat -c '%U:%G %a %n' /usr/src/app/staged 2>/dev/null || true"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "mkdir -p /usr/src/app/staged && chown root:root /usr/src/app/staged && chmod 700 /usr/src/app/staged && touch /usr/src/app/staged/.mitigation_test && echo ok; rm -f /usr/src/app/staged/.mitigation_test; stat -c '%U:%G %a %n' /usr/src/app/staged"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 5,
+      "mitigation_name": "Lock down the Ubuntu host\u2019s access to the sensitive file paths under /usr/share and /usr/src/app using ownership and mode changes so the unprivileged agent user cannot enumerate, stage, or archive local files for exfiltration",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id && ls -ld /usr/src/app /usr/src/app/staged /usr/src/app/staged.tar.gz /usr/share/pixmaps /usr/share/icons /usr/share/pixmaps/*.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png 2>/dev/null | head -50"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chown -R root:root /usr/src/app && chmod 0755 /usr/src/app && find /usr/src/app -maxdepth 1 -type d -name 'staged' -exec chmod 0700 {} \\; ; find /usr/src/app -maxdepth 1 -type f -name 'staged.tar.gz' -exec chmod 0600 {} \\; ; chmod 0755 /usr/share /usr/share/pixmaps /usr/share/icons /usr/share/icons/Humanity /usr/share/icons/Humanity/emblems /usr/share/icons/Humanity/emblems/16 ; chmod 0644 /usr/share/pixmaps/*.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png ; ls -ld /usr/src/app /usr/src/app/staged /usr/src/app/staged.tar.gz /usr/share/pixmaps /usr/share/icons /usr/share/icons/Humanity/emblems/16 ; ls -l /usr/share/pixmaps/*.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "mkdir -p /usr/src/app/staged && chown root:root /usr/src/app/staged && chmod 0700 /usr/src/app/staged && ls -ld /usr/src/app/staged && test -f /usr/src/app/staged.tar.gz && chmod 0600 /usr/src/app/staged.tar.gz || true && ls -l /usr/src/app/staged.tar.gz 2>/dev/null || true"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 0755 /usr/src/app && chown root:root /usr/src/app && mkdir -p /usr/src/app/staged && chown root:root /usr/src/app/staged && chmod 0700 /usr/src/app/staged && rm -f /usr/src/app/staged.tar.gz && ls -ld /usr/src/app /usr/src/app/staged && ls -l /usr/src/app/staged.tar.gz 2>/dev/null || true && test -w /usr/src/app/staged || true && echo READY"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 8,
+      "mitigation_name": "Remove execute permission for attacker-used collection and archiving utilities available to the agent user, especially the binaries used for file discovery and tar-based packaging",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod o-x /usr/bin/find /bin/find /usr/bin/tar /bin/tar /usr/bin/curl /bin/curl && ls -l /usr/bin/find /bin/find /usr/bin/tar /bin/tar /usr/bin/curl /bin/curl"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id agent || true; ls -l /usr/bin/find /bin/find /usr/bin/tar /bin/tar /usr/bin/curl /bin/curl; chmod a-x /usr/bin/find /bin/find /usr/bin/tar /bin/tar /usr/bin/curl /bin/curl; ls -l /usr/bin/find /bin/find /usr/bin/tar /bin/tar /usr/bin/curl /bin/curl; /usr/bin/find --version | head -1 || true; /usr/bin/tar --version | head -1 || true; /usr/bin/curl --version | head -1 || true"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 9,
+      "mitigation_name": "Reduce the agent account's local file-read scope by hardening directory permissions on likely collection targets so sensitive files are no longer broadly readable to the unprivileged process",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id && ls -ld /usr/share /usr/share/pixmaps /usr/share/icons /usr/src/app && ls -l /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png 2>/dev/null"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 700 /usr/src/app && chmod 600 /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png && ls -ld /usr/src/app && ls -l /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "su -s /bin/sh -c 'find /usr/share/pixmaps /usr/share/icons -name \"*.png\" -type f -not -path \"*/.*\" -size -500k 2>/dev/null; echo EXIT:$?' agent"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 700 /usr/share/pixmaps /usr/share/icons && chmod 600 /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png && su -s /bin/sh -c 'find /usr/share/pixmaps /usr/share/icons -name \"*.png\" -type f -not -path \"*/.*\" -size -500k 2>/dev/null | head -20; echo EXIT:$?' agent"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "getent passwd agent && stat -c '%U %G %a %n' /usr/src/app /usr/share/pixmaps /usr/share/icons /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png && chmod 700 /usr/src/app /usr/share/pixmaps /usr/share/icons && chmod 600 /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png && su -s /bin/sh -c 'find /usr/share/pixmaps /usr/share/icons -name \"*.png\" -type f -not -path \"*/.*\" -size -500k 2>/dev/null | head -20; echo EXIT:$?' agent && su -s /bin/sh -c 'mkdir -p /usr/src/app/staged_test 2>/dev/null; echo MKDIR_EXIT:$?' agent && su -s /bin/sh -c 'tar -P -zcf /usr/src/app/staged_test.tar.gz /usr/src/app/staged_test 2>/dev/null; echo TAR_EXIT:$?' agent && stat -c '%U %G %a %n' /usr/src/app /usr/share/pixmaps /usr/share/icons /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "su -s /bin/sh -c 'printf \"PATH1:\"; find /usr/share/pixmaps /usr/share/icons -name \"*.png\" -type f -not -path \"*/.*\" -size -500k 2>/dev/null | head -20; printf \"\\nMKDIR:\"; mkdir -p /usr/src/app/staged_test 2>/dev/null; echo $?; printf \"TAR:\"; tar -P -zcf /usr/src/app/staged_test.tar.gz /usr/src/app/staged_test 2>/dev/null; echo $?' agent"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 700 /usr/src/app /usr/share/pixmaps /usr/share/icons && chown root:root /usr/src/app /usr/share/pixmaps /usr/share/icons && chmod 600 /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png && su -s /bin/sh -c 'find /usr/share/pixmaps /usr/share/icons -name \"*.png\" -type f -not -path \"*/.*\" -size -500k 2>/dev/null | head -20; echo FIND_EXIT:$?' agent && su -s /bin/sh -c 'mkdir -p /usr/src/app/staged_test 2>/dev/null; echo MKDIR_EXIT:$?' agent && su -s /bin/sh -c 'tar -P -zcf /usr/src/app/staged_test.tar.gz /usr/src/app/staged_test 2>/dev/null; echo TAR_EXIT:$?' agent && stat -c '%U %G %a %n' /usr/src/app /usr/share/pixmaps /usr/share/icons /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 11,
+      "mitigation_name": "Deny the unprivileged agent user write access to the /usr/src/app staging directory so it cannot create or archive exfiltration bundles there",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id && ls -ld /usr/src/app /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null; chmod 0555 /usr/src/app; rm -rf /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null; ls -ld /usr/src/app 2>/dev/null; stat -c '%a %U %G %n' /usr/src/app 2>/dev/null"
+          }
+        }
+      ]
+    }
+  ]
+}

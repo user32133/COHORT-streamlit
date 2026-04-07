@@ -1,0 +1,55 @@
+{
+  "attack_summary": "A compromised Ubuntu host (UbuntuComputer, agent 'rnxwtm', IP 192.168.1.3 / reachable as 203.0.113.2) running as root used hping3 to generate a sustained ICMP flood (T1498.001) targeting 7.0.14.254. The attacker/agent remained active in the environment and the goal was to stop the flood without removing or rebuilding the host.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert inline Snort IPS between FortiGate and LAN",
+      "outcome": "success",
+      "brief_description": "Removed the direct FortiGate <-> cisco-switch link and inserted a preconfigured Snort inline IPS (snort-ids-1) between FortiGate7.0.14-1 and the cisco-switch so LAN-originating traffic (including from the compromised host) is inspected and malicious ICMP flood traffic is blocked in-line.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 2,
+      "name": "Host-level containment: disable hping3 and drop outbound ICMP",
+      "outcome": "success",
+      "brief_description": "On the compromised UbuntuComputer the hping3 binary was moved/disabled and an iptables rule was added to DROP outbound IPv4 ICMP (OUTPUT chain) to immediately stop generation of ICMP floods from that host while leaving the host live for analysis.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "Layered approach: host containment + inline Snort (final state)",
+      "outcome": "success",
+      "brief_description": "Combined the host-level controls (disabled hping3 + iptables OUTPUT DROP for ICMP) with a resilient network control (Snort inline) to provide both immediate blocking at the source and authoritative blocking on the LAN path. This layered configuration prevented the active ICMP flood while keeping the compromised host present."
+    }
+  ],
+  "key_observations": [
+    "Attack vector: ICMP flood created by hping3 from a root-level agent on UbuntuComputer; attacker retained elevated privileges, so local changes can be reverted by the adversary.",
+    "Inline Snort IPS effectively blocks attack traffic at the network path and cannot be trivially disabled by the compromised host \u2014 it is the most resilient immediate control in this scenario.",
+    "Host-level controls (moving/disabling hping3, iptables DROP) are quick and effective short-term mitigations but are brittle against a root adversary and only prevent the exact observed tool unless paired with monitoring/persistence.",
+    "All implemented mitigations stopped the flood but produced collateral impacts: ICMP-based LAN tests (ping) were intentionally broken by the host iptables rule, and HTTP connectivity checks (to 1.1.1.1) also failed after topology changes, indicating unintended legitimate connectivity disruption or misconfiguration that needs investigation.",
+    "Operational gaps: command logs showed minor typos and missing explicit verification outputs (e.g., iptables-save, ls -l of disabled binary, Snort operational logs). No persistent hardening (AppArmor/SELinux, persistent firewall rules) or FortiGate egress rules were applied during the steps, though they were recommended."
+  ],
+  "overall_conclusion": "The team successfully stopped the active ICMP flood while keeping the compromised host in the environment by combining immediate host containment (disable tool + iptables drop) with a resilient network control (inline Snort IPS). The attack is mitigated, but the chosen controls caused legitimate connectivity disruption and host-level changes are brittle against a root attacker. Recommended next steps for a production-transferable defense: retain the Snort inline IPS, implement FortiGate egress policies or per-host ICMP rate-limits, persist and monitor host firewall rules, deploy host allowlisting/mandatory access control (AppArmor/SELinux or capability/token restrictions) and add monitoring/alerting to detect rule tampering so the mitigation becomes robust without breaking legitimate services."
+}

@@ -1,0 +1,31 @@
+{
+  "attack_summary": "A compromised Ubuntu host (192.168.1.3) was running an active ICMP flood (hping3) directed at 7.0.14.254 and contacting a C2 server at 203.0.113.1:8443. The attacker agent (splunkd, elevated) remained alive and able to send traffic; this is a live incident-response scenario where the infected host could not be removed.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert inline Snort IPS between FortiGate and internal switch",
+      "outcome": "success",
+      "brief_description": "Topology change: removed direct FortiGate<->switch link, added a preconfigured Snort inline device between FortiGate and the Cisco switch. Purpose: let the inline IPS detect and block the high-rate ICMP flood. Result: Snort blocked the malicious ICMP traffic (attack rate observed to drop to 0.0) but caused unintended collateral impact — outbound Internet connectivity from the compromised host was disrupted (validation showed legitimate HTTPS/HTTP checks failed)."
+    },
+    {
+      "number": 2,
+      "name": "Host-based ICMP rate-limiting + FortiGate deny policies (C2 & ICMP target)",
+      "outcome": "failure",
+      "brief_description": "Host: inserted iptables OUTPUT rule to rate-limit ICMP (limit 10/sec, burst 20). FortiGate: created address objects for CompromisedHost, C2_Server, ICMP_Target; created custom service for TCP/8443 and added two deny policies to block C2 (203.0.113.1:8443) and ICMP to 7.0.14.254. Result: commands applied but validation showed the attack continued (no reduction in attack success rate); possible causes include FortiGate policy ordering, mismatched service matching, or the privileged attacker bypassing host rules."
+    {
+      "number": 3,
+      "name": "No-op / mitigation limit reached",
+      "outcome": "failure",
+      "brief_description": "No additional active mitigation was implemented — the team indicated mitigation attempts were exhausted and did not apply further controls in the third attempt."
+    }
+  ],
+  "key_observations": [
+    "Layered approach used: network IPS insertion first, then host+firewall controls. The inline IPS is effective at blocking volumetric ICMP floods when placed correctly (LAN-side after firewall).",
+    "Collateral impact risk: topology changes (adding inline device) can break legitimate flows if path, NAT, interface mapping or device placement/ordering are not validated. The first mitigation stopped the flood but disrupted outbound Internet access.",
+    "Host controls are brittle when the attacker has elevated privileges — iptables rules raise the bar but can be reverted or bypassed by the attacker.",
+    "Firewall policy ordering and exact service matching are critical on FortiGate; creating policies without verifying sequence/counters can lead to rules that do not match or enforce traffic as intended.",
+    "Verification and telemetry were insufficient: missing artifacts (Snort alerts, FortiGate policy order and counters, packet captures, iptables full dumps) made diagnosis and iterative fixes difficult.",
+    "All actions respected the live-response constraint: the compromised host remained on the network and was not removed or quarantined."
+  ],
+  "overall_conclusion": "The team applied three mitigation attempts. Insertion of an inline Snort IPS effectively blocked the ICMP flood in practice but caused collateral disruption to legitimate outbound connectivity. Subsequent host and FortiGate rules were applied but failed to stop the attack (attack traffic persisted) — likely due to policy-ordering, service matching, or attacker bypass. Final state: the attack was not permanently mitigated across the session. Recommended next steps: validate and restore correct traffic paths for the Snort insertion (ensure bidirectional inline placement and bypass for legitimate services), collect Snort alerts and packet captures, verify FortiGate policy ordering and counters, implement robust egress filtering/rate-limiting on network devices (not only host), and monitor logs before and after each change to avoid collateral outages while preserving enforcement against the active attacker."
+}

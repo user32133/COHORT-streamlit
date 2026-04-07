@@ -1,0 +1,31 @@
+{
+  "attack_summary": "An active ICMP flood (network-layer DDoS) was launched from a compromised Ubuntu host (192.168.1.3, elevated 'splunkd' agent) using hping3 to generate high-rate ICMP traffic to an external endpoint. The attacker remains live in-network; mitigations had to stop the flood without removing the host.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Deploy Snort inline IPS (LAN-side)",
+      "outcome": "success",
+      "brief_description": "Inserted a preconfigured Snort inline IPS between the FortiGate and the internal Cisco switch (FortiGate -> snort-ids-1 -> cisco-switch). Snort inspects and blocks ICMP-flood signatures inline without reconfiguring Snort or removing the host."
+    },
+    {
+      "number": 2,
+      "name": "FortiGate egress controls (deny/block)",
+      "outcome": "success",
+      "brief_description": "Created a FortiGate address object for 192.168.1.3 and implemented a top-of-list firewall policy denying outbound traffic from that host. Initial attempts hit policy-ordering/CLI issues (block rule was initially placed after an allow-all), but the rule was re-created as the first policy to ensure enforcement."
+    },
+    {
+      "number": 3,
+      "name": "Endpoint network hardening (host-based ICMP rate-limit)",
+      "outcome": "success",
+      "brief_description": "Applied host-side throttling on the Ubuntu host. nft attempts failed due to syntax/platform issues, so an iptables OUTPUT rule with limit (approx. 10/sec, burst 20) was added as a fallback to drop excessive outbound ICMP at the source."
+    }
+  ],
+  "key_observations": [
+    "Layered defenses (inline IPS + perimeter firewall + host throttling) were used and proved effective: attack success rate dropped from 1.0 to 0.0.",
+    "Placement and ordering matter: Snort must be LAN-side (between firewall and switch) to inspect outbound traffic; FortiGate policies are evaluated top-down so correct rule ordering (or creating the deny as top policy) was required.",
+    "Host fallback is important: nft syntax issues required using iptables; endpoint controls provide source-side throttling and defense-in-depth.",
+    "Verification telemetry was recommended repeatedly \u2014 Snort alerts and FortiGate logs should be monitored to confirm blocking and to collect forensic artifacts before permanent containment.",
+    "All mitigations respected the live-response constraint: the compromised host remained on the network and was not quarantined, reimaged, or removed."
+  ],
+  "overall_conclusion": "The team stopped the active ICMP flood while keeping the attacker in-network by combining an inline Snort IPS, an enforced top-of-list FortiGate deny-egress policy for the compromised host, and host-level rate-limiting. The mitigation was effective (attack success rate 0.0). Recommended follow-ups: enable FortiGate DoS/anomaly profiles and per-IP shapers, make host rules persistent and apply process allowlisting, and collect forensic evidence while monitoring Snort and firewall logs."
+}

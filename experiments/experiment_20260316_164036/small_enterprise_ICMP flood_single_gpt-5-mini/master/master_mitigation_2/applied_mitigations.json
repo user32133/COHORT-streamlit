@@ -1,0 +1,118 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Deploy inline Snort IPS between firewall and LAN to block outgoing ICMP flood",
+      "tool_calls": [
+        {
+          "operation": "delete_link",
+          "args": {
+            "link_id": "66b0c316-3bd5-449a-9396-479cbf011eb4"
+          },
+          "link_endpoint_devices": [
+            "FortiGate7.0.14-1",
+            "cisco-switch"
+          ]
+        },
+        {
+          "operation": "add_device",
+          "args": {
+            "device_type": "snort",
+            "device_name": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "FortiGate7.0.14-1",
+            "device2_identifier": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "snort-ids-1",
+            "device2_identifier": "cisco-switch"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ping -c 3 -W 2 7.0.14.254"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 2,
+      "mitigation_name": "Create FortiGate egress ACL to deny ICMP from compromised host to attack target (egress filtering)",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show system interface"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"Compromised_Host\"\nset subnet 192.168.1.3 255.255.255.255\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Limit_ICMP_from_Compromised\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"Compromised_Host\"\nset dstaddr \"all\"\nset action accept\nset schedule \"always\"\nset service \"PING\"\nset nat enable\nset traffic-shaping \"per-policy-shaping\"\nset profile-protocol-options \"default\"\nset logtraffic all\nset status enable\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"ICMP_Target\"\nset subnet 7.0.14.254 255.255.255.255\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall.policy\nedit 0\nset name \"Drop_ICMP_to_Target_from_Compromised\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"Compromised_Host\"\nset dstaddr \"ICMP_Target\"\nset action deny\nset schedule \"always\"\nset service \"PING\"\nset logtraffic all\nset status enable\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\nset name \"Deny_ICMP_Compromised_to_Target\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"Compromised_Host\"\nset dstaddr \"ICMP_Target\"\nset action deny\nset schedule \"always\"\nset service \"PING\"\nset logtraffic all\nset status enable\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "hping3 --icmp -c 5 7.0.14.254"
+          }
+        }
+      ]
+    }
+  ]
+}

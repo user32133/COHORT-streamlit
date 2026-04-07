@@ -1,0 +1,118 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Deploy the pre-configured Snort inline between the FortiGate and the internal switch (LAN-side) so the IPS can immediately detect and block ICMP flood patterns and other malicious network floods.",
+      "tool_calls": [
+        {
+          "operation": "delete_link",
+          "args": {
+            "link_id": "647c6495-416b-42b3-bb07-8d0368b65c18"
+          },
+          "link_endpoint_devices": [
+            "FortiGate7.0.14-1",
+            "cisco-switch"
+          ]
+        },
+        {
+          "operation": "add_device",
+          "args": {
+            "device_type": "snort",
+            "device_name": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "FortiGate7.0.14-1",
+            "device2_identifier": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "snort-ids-1",
+            "device2_identifier": "cisco-switch"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 2,
+      "mitigation_name": "Implement egress filtering and DoS/traffic-policing on the FortiGate: enforce protocol whitelisting for outbound traffic, apply per-host rate limits and packet/connection thresholds (including ICMP) and enable session limits so a single compromised host cannot generate high pps/throughput to the Internet.",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"UbuntuComputer\"\nset subnet 192.168.1.3 255.255.255.255\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall service custom\nedit \"ICMP-PERMIT\"\nset protocol 1\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"ATTACKER_IP\"\nset subnet 203.0.113.1 255.255.255.255\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Deny_ICMP_from_Ubuntu_to_Attacker\"\nset srcintf \"Port2\"\nset dstintf \"caldera-br\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"ATTACKER_IP\"\nset action deny\nset schedule \"always\"\nset service \"ALL\"\nset logtraffic all\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show system interface"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Deny_ICMP_from_Ubuntu_to_Attacker\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"ATTACKER_IP\"\nset action deny\nset schedule \"always\"\nset service \"ALL\"\nset logtraffic all\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\nset name \"Deny_Ubuntu_to_Attacker\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"ATTACKER_IP\"\nset action deny\nset schedule \"always\"\nset service \"ALL\"\nset logtraffic all\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall DoS-policy\nedit 0\nset interface \"port2\"\nset srcaddr \"UbuntuComputer\"\nset status enable\nset action traffic-shape\nset log enable\nset traffic-shaper \"icmp-shaper\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config traffic-shaper service\nedit \"icmp-shaper\"\nset guaranteed-bandwidth 64\nset maximum-bandwidth 128\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall DoS-policy\nedit 1\nset interface \"port2\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"ATTACKER_IP\"\nset protocol 1\nset status enable\nset action block\nnext\nend"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "attack_summary": "An active ICMP flood (Network DoS, T1498.001) was launched from a compromised Ubuntu host (UbuntuComputer, IP 192.168.1.3, process 'splunkd') using hping3 against a WAN/LAN target (7.0.14.254). The agent performed discovery (pinged 192.168.1.2) and maintained C2 contact to 203.0.113.1; the attacker remained active in the digital-twin.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert pre-configured Snort IPS inline between FortiGate and LAN",
+      "outcome": "success",
+      "brief_description": "Removed the direct FortiGate <-> cisco-switch link, added a preconfigured Snort device (snort-ids-1), and linked FortiGate -> snort-ids-1 -> cisco-switch so the inline IPS inspects LAN traffic. The Snort IPS immediately detected and blocked high-rate ICMP flood patterns while leaving the compromised host in place; legitimate LAN and Internet checks continued to succeed.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    }
+  ],
+  "key_observations": [
+    "Attack vector: raw ICMP flood generated on-host (hping3) after successful network discovery; target IP facts collected: lan target 192.168.1.2 and icmp target 7.0.14.254.",
+    "Mitigation was minimally disruptive and aligned with live-IR constraints: the compromised host remained connected and the inline IPS stopped the flood without host quarantine.",
+    "Tool-level actions were executed with explicit topology changes (deleted FortiGate<->switch link, added snort-ids-1, created FortiGate->Snort and Snort->switch links) and the judge validated the attack success rate dropping from 1.0 to 0.0.",
+    "No Snort signature logs or dropped-packet counters were supplied; validation relies on topology change, tool responses, and judge confirmation. Recommended follow-up: inspect Snort and FortiGate logs, verify no alternate/bypass paths (e.g., host using 203.0.113.2), and confirm which rules triggered.",
+    "This approach is transferable: inserting an inline IPS to stop volumetric floods is an effective live-IR technique when host removal is prohibited; complementary controls (firewall egress filtering, host rate-limiting, DoS sensors) remain recommended for longer-term resilience."
+  ],
+  "overall_conclusion": "The single, constrained live-IR action \u2014 inserting a pre-configured Snort IPS inline between the firewall and LAN \u2014 successfully mitigated the active ICMP flood while preserving the compromised host for forensic analysis and maintaining legitimate connectivity. Follow-up actions should verify IDS/firewall logs, check for bypass paths, and implement layered controls (FortiGate DoS tuning, egress filtering, host rate-limits and monitoring) to reduce recurrence risk."
+}

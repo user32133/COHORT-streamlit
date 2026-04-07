@@ -1,0 +1,55 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Insert a Snort inline IPS on the LAN side just after the FortiGate firewall (between the firewall and internal hosts) so it can automatically detect and block ICMP flooding patterns and high-rate ICMP flows in real time.",
+      "tool_calls": [
+        {
+          "operation": "delete_link",
+          "args": {
+            "link_id": "35ffb16f-af5c-436e-9039-cf084788abe1"
+          },
+          "link_endpoint_devices": [
+            "FortiGate7.0.14-1",
+            "cisco-switch"
+          ]
+        },
+        {
+          "operation": "add_device",
+          "args": {
+            "device_type": "snort",
+            "device_name": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "FortiGate7.0.14-1",
+            "device2_identifier": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "snort-ids-1",
+            "device2_identifier": "cisco-switch"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 2,
+      "mitigation_name": "Segment the compromised UbuntuComputer into a restricted VLAN/zone (micro-segmentation) and enforce firewall policies that only permit minimal required egress (management/monitoring) while denying bulk/unsanctioned protocols; keep the host on the network but limit its ability to send high-volume ICMP externally.",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"UbuntuComputer\"\n set subnet 192.168.1.3 255.255.255.255\nnext\nedit \"Caldera_Server\"\n set subnet 203.0.113.1 255.255.255.255\nnext\nend\n\nconfig firewall service custom\nedit \"CALDERA_8443\"\n set protocol TCP\n set tcp-portrange 8443\nnext\nedit \"DNS_udp\"\n set protocol UDP\n set udp-portrange 53\nnext\nend\n\nconfig firewall policy\nedit 1\n set name \"Deny_Ubuntu_ICMP\"\n set srcintf \"port2\"\n set dstintf \"port1\"\n set srcaddr \"UbuntuComputer\"\n set dstaddr \"all\"\n set action deny\n set service \"PING\"\n set schedule \"always\"\n set logtraffic all\nnext\nedit 2\n set name \"Allow_Ubuntu_Caldera_8443\"\n set srcintf \"port2\"\n set dstintf \"port1\"\n set srcaddr \"UbuntuComputer\"\n set dstaddr \"Caldera_Server\"\n set action accept\n set service \"CALDERA_8443\"\n set nat enable\n set schedule \"always\"\n set logtraffic all\nnext\nedit 3\n set name \"Allow_Ubuntu_DNS\"\n set srcintf \"port2\"\n set dstintf \"port1\"\n set srcaddr \"UbuntuComputer\"\n set dstaddr \"all\"\n set action accept\n set service \"DNS_udp\"\n set schedule \"always\"\n set logtraffic all\nnext\nend\n\nconfig firewall policy\nshow\nend\n\nconfig firewall address\nshow\nend"
+          }
+        }
+      ]
+    }
+  ]
+}

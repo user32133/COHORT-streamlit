@@ -1,0 +1,31 @@
+{
+  "attack_summary": "An adversary with elevated (root) access on UbuntuComputer (192.168.1.3) ran an ICMP flood (hping3) targeting an external C2/host (203.0.113.1). The objective was a high-rate ICMP network flood (T1498.001) while the agent remained live for command-and-control.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Deploy pre-configured Snort inline IPS between FortiGate and internal switch",
+      "outcome": "success",
+      "brief_description": "Inserted a preconfigured Snort device inline immediately after the FortiGate and before the internal switch so LAN->WAN traffic traverses the IPS; Snort blocked ICMP/packet-crafting signatures and reduced the attack traffic to zero, but validation showed it also disrupted legitimate LAN and Internet reachability (connectivity collateral)."
+    },
+    {
+      "number": 2,
+      "name": "Per-port policing attempt then host-level iptables rate-limit",
+      "outcome": "failure",
+      "brief_description": "Attempted to enable storm-control/pps policing on the switch port for the compromised host, but the IOS image did not support the syntax. Fallback: applied on-host iptables rules (rate-limited ACCEPT for ICMP at top of OUTPUT, then DROP) to limit outbound ICMP. Rules preserved connectivity but did not stop the replayed ICMP flood in validation (attack remained successful), and host-based controls are tamperable because attacker has root."
+    },
+    {
+      "number": 3,
+      "name": "FortiGate outbound ICMP block (attempted) with compensating controls",
+      "outcome": "failure",
+      "brief_description": "Tried to create a FortiGate LAN->WAN deny policy for ICMP but could not authenticate to the FortiGate CLI (login failures). Compensating controls (keeping Snort inline and the on-host iptables rules) were maintained. Validation still indicated the ICMP flood persisted; the durable network-layer block was not applied."
+    }
+  ],
+  "key_observations": [
+    "Snort inline IPS can block crafted/high-rate ICMP flows when placed correctly, but default/overly aggressive inline blocking can also break legitimate connectivity \u2014 tuning and validation are required.",
+    "Host-based mitigations (iptables OUTPUT rules) can be applied immediately and preserve host connectivity, but are inherently unreliable for a fully compromised host because the attacker has root and can tamper with or remove rules.",
+    "Network-layer enforcement (FortiGate policies, switch per-port policing/ingress ACLs/QoS) is the preferred durable control; inability to authenticate to FortiGate and/or hardware/IOS limitations on the switch prevented applying these stronger controls.",
+    "Operational verification and telemetry were incomplete or missing (no Snort alert/drop logs, no iptables rule listings/counters), making it hard to diagnose whether controls were effective or misapplied.",
+    "Defense-in-depth is required: combine a tuned inline IPS, upstream FortiGate per-source throttling/deny rules, switch-level per-port policing, and monitoring/alerting to provide robust, tamper-resistant mitigation while keeping a compromised host online for forensics."
+  ],
+  "overall_conclusion": "Although a Snort inline IPS was able to stop the ICMP flood in-line, its deployment caused collateral connectivity loss and was not a safe final configuration. Subsequent attempts to limit traffic via the access switch failed due to platform limitations and the host-level iptables fallback was insufficient (and tamperable) \u2014 and FortiGate enforcement could not be applied because of authentication failures. The attack was not durably mitigated in the live environment. Recommended next steps: restore FortiGate admin access and apply a LAN->WAN ICMP deny or per-source rate-limits; implement switch ingress policing or firewall shaping where supported; tune Snort rules to avoid blocking legitimate flows; validate iptables and Snort counters; and assume the host is untrusted (forensic capture then reimage) once containment decisions permit."
+}

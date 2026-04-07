@@ -1,0 +1,43 @@
+{
+  "attack_summary": "A compromised Linux host (UbuntuComputer, 192.168.1.3) running an agent issued an hping3-based ICMP flood (direct network flood) targeting an external address (203.0.113.1). The objective was a network denial-of-service (high packet-per-second ICMP flood) originating from an internal, root\u2011privileged endpoint while the attacker remained active in the environment.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert pre-configured Snort IPS inline (FortiGate -> Snort -> Switch)",
+      "outcome": "success",
+      "brief_description": "Removed FortiGate<->switch link and placed the preconfigured Snort device inline on the LAN side so it could autonomously drop malicious ICMP flood traffic. This immediately blocked the flood traffic at the LAN ingress. Caveat: initial placement produced collateral connectivity disruption (legitimate ICMP/HTTP checks failed) that required verification/tuning."
+    },
+    {
+      "number": 2,
+      "name": "FortiGate egress filtering and anti-spoofing (per-host ICMP deny + src-check)",
+      "outcome": "success",
+      "brief_description": "Created a FortiGate address object for 192.168.1.3 and a firewall policy denying outbound PING (ICMP) on the correct interfaces (port2 -> port1). Enabled src-check (anti-spoofing). Attempts to create per-src DoS PPS rules initially failed due to CLI syntax differences and required iteration; the perimeter deny successfully prevented ICMP egress when correctly bound to the interfaces."
+    },
+    {
+      "number": 3,
+      "name": "Host-level iptables outbound ICMP rate-limit on UbuntuComputer",
+      "outcome": "failure",
+      "brief_description": "Added an iptables chain (MITIGATE_ICMP) on the compromised host, inserted a rate-limit accept (10/sec, burst 20) and dropped excess OUTPUT ICMP. This reduces locally-generated ICMP rates immediately, but as the host is root\u2011compromised this control is ephemeral and insufficient alone (attacker can remove/modify rules). Alone it did not reliably stop the attack in validation."
+    },
+    {
+      "number": 4,
+      "name": "First-hop switch ACLs (MAC ACL + IP ACL on Gi0/1) to block host traffic",
+      "outcome": "success",
+      "brief_description": "Identified the compromised host MAC on Gi0/1 and applied a MAC-level ACL denying frames from that MAC and an IP ACL denying ICMP from 192.168.1.3 inbound on the access port. This stopped the flood at the first hop (effective) but was broad (MAC ACL initially blocked all traffic from the host) and caused legitimate connectivity loss until tuned."
+    },
+    {
+      "number": 5,
+      "name": "L2 hardening (DHCP snooping, Dynamic ARP Inspection) + port-security; re-add Snort inline",
+      "outcome": "success",
+      "brief_description": "Enabled DHCP snooping and DAI for VLAN 1, trusted the uplink, applied port-security (sticky MAC; 'restrict' violation) on access ports, and placed Snort inline again between the FortiGate and the switch. DAI logs showed invalid ARP blocks and Snort inline operation provided automated blocking of the active ICMP flood. This layered combination achieved the final validated mitigation while preserving the host physically on the network; some per-port port-security commands required per-interface iteration due to IOS syntax differences."
+    }
+  ],
+  "key_observations": [
+    "Network\u2011level authoritative controls (inline IPS, perimeter firewall policies, switch first\u2011hop ACLs/policing) are effective at stopping active floods from a compromised host; host-only controls are fragile if the host is root-compromised.",
+    "Snort inline placement (after FortiGate, before internal switch) provided rapid automated blocking, but default/drop behavior can produce collateral disruption; always validate flow traversal and tune policies to avoid blocking legitimate traffic.",
+    "Operational/configuration pitfalls repeatedly appeared: incorrect interface names/capitalization, platform-specific CLI syntax differences (FortiOS DoS policy syntax, IOS interface-range/port-security variations) can prevent enforcement until corrected and verified.",
+    "Defense-in-depth works best: combining perimeter egress filtering (FortiGate), first-hop enforcement (switch ACL/port policing, port-security, DAI/DHCP snooping) and inline IPS gives layered, durable mitigation while preserving live\u2011forensic presence of the compromised host.",
+    "Host-side mitigations (iptables/nftables) are useful for immediate mitigation but must be complemented by network enforcement because a root attacker can remove or bypass host rules; persist/collect forensic evidence before relying on host persistence."
+  ],
+  "overall_conclusion": "The active ICMP flood was ultimately stopped by layered, network-centric mitigations: inline Snort (LAN-side IPS), perimeter FortiGate egress deny/policy, and first\u2011hop switch enforcement (ACLs/DAI/port-security). Host-level rate-limiting alone was insufficient against a root-compromised endpoint. Key takeaways: prioritize authoritative network enforcement, verify policy bindings and device\u2011specific syntax, and use layered controls (IPS + firewall + switch policing) to block ongoing attacks while keeping the compromised host present for live incident response and forensics."
+}

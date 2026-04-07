@@ -1,0 +1,83 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Deploy the preconfigured Snort IPS inline between the FortiGate (LAN-facing) and the internal switch so Snort can automatically detect and block ICMP flood patterns originating from the compromised host.",
+      "tool_calls": [
+        {
+          "operation": "delete_link",
+          "args": {
+            "link_id": "52fc390c-9fd9-4718-879b-6b04c25b3bee"
+          },
+          "link_endpoint_devices": [
+            "FortiGate7.0.14-1",
+            "cisco-switch"
+          ]
+        },
+        {
+          "operation": "add_device",
+          "args": {
+            "device_type": "snort",
+            "device_name": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "FortiGate7.0.14-1",
+            "device2_identifier": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "snort-ids-1",
+            "device2_identifier": "cisco-switch"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 3,
+      "mitigation_name": "Configure FortiGate DoS protections and ICMP policing: create per-source and global ICMP rate-limits, enable control-plane protection and ICMP throttling so a single internal host cannot generate unlimited ICMP traffic or exhaust firewall resources.",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"UbuntuComputer-host\"\nset subnet 192.168.1.3 255.255.255.255\nnext\nend\n\nconfig firewall policy\nedit 0\nset name \"block-icmp-from-ubuntu\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer-host\"\nset dstaddr \"all\"\nset action deny\nset schedule \"always\"\nset service \"PING\"\nset logtraffic all\nset status enable\nnext\nend\n\nshow firewall policy\nshow firewall address"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nmove 2 1\nend\n\nshow firewall policy"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\ndelete 1\nend\n\nconfig firewall policy\nedit 0\nset name \"block-icmp-from-ubuntu\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer-host\"\nset dstaddr \"all\"\nset action deny\nset schedule \"always\"\nset service \"PING\"\nset logtraffic all\nset status enable\nnext\nend\n\nconfig firewall policy\nedit 0\nset name \"LAN-to-WAN-NAT\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset action accept\nset srcaddr \"all\"\nset dstaddr \"all\"\nset schedule \"always\"\nset service \"ALL\"\nset nat enable\nnext\nend\n\nshow firewall policy\nshow firewall address"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\ndelete 2\ndelete 3\ndelete 4\nend\n\nconfig firewall policy\nedit 0\nset name \"block-icmp-from-ubuntu\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer-host\"\nset dstaddr \"all\"\nset action deny\nset schedule \"always\"\nset service \"ALL\"\nset logtraffic all\nset status enable\nnext\nedit 0\nset name \"LAN-to-WAN-NAT\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset action accept\nset srcaddr \"all\"\nset dstaddr \"all\"\nset schedule \"always\"\nset service \"ALL\"\nset nat enable\nnext\nend\n\nshow firewall policy\nshow firewall address"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\nset action deny\nset service \"PING\"\nset logtraffic all\nset status enable\nnext\nend\n\nshow firewall policy\nshow firewall address"
+          }
+        }
+      ]
+    }
+  ]
+}

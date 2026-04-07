@@ -1,0 +1,36 @@
+{
+  "attack_summary": "An active ICMP flood (DDoS) was being launched from a compromised host (UbuntuComputer, 192.168.1.3) using hping3 toward an external target (7.0.14.254). The attacker remained present and the Caldera agent (splunkd) required both LAN ICMP and internet HTTPS checks to remain functional during mitigation.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert inline Snort IPS between FortiGate and internal switch",
+      "outcome": "success",
+      "brief_description": "Removed existing FortiGate->switch link, added a preconfigured Snort inline device and linked FortiGate -> Snort -> Cisco-switch. This immediately intercepted/blocked the outbound ICMP flood (attack traffic rate dropped), but it also caused the agent's outbound HTTPS check to fail (collateral impact on Internet egress). No host processes were modified."
+    },
+    {
+      "number": 2,
+      "name": "Add FortiGate outbound HTTPS allow policy (attempt to restore agent egress)",
+      "outcome": "failure",
+      "brief_description": "Created address objects and firewall policy entries on the FortiGate to allow HTTPS from the compromised host to 1.1.1.1 (and related address objects). This preserved connectivity intent but did not address the ICMP flood vector and did not stop the attack when tested; it was not an effective mitigation of the flood itself."
+    },
+    {
+      "number": 3,
+      "name": "Disable / rename hping3 on the compromised host",
+      "outcome": "success",
+      "brief_description": "On UbuntuComputer located /usr/sbin/hping3, removed execute permission then moved/renamed the binary (/usr/sbin/hping3 -> /usr/sbin/hping3.disabled). Verified no hping3 process remained (pgrep -> NO_HPING) and LAN ICMP (ping to 192.168.1.2) still worked. This immediately stopped the active flood originating from that binary but is not durable if the attacker can re-upload/recompile another tool."
+    },
+    {
+      "number": 4,
+      "name": "Add targeted FortiGate deny policy for ICMP from comp_host to 7.0.14.254",
+      "outcome": "failure",
+      "brief_description": "Created address objects for comp_host (192.168.1.3) and icmp_target (7.0.14.254) and added a named firewall deny policy scoped to service PING (ICMP) from port2 -> port1 for that source/destination. The rule was created and logged, but tests showed the flood remained effective (policy did not stop the observed traffic), indicating a policy-match/NAT/order or service-matching problem rather than a missing rule."
+  ],
+  "key_observations": [
+    "Host-level action (disable/rename attack binary) is the fastest way to stop a running tool, but it is not a persistent fix — attackers can re-deploy alternate tools or recompile binaries.",
+    "Network-layer defenses (inline IPS like Snort) can stop volumetric ICMP floods, but can produce collateral effects (broken outbound HTTPS) if default behavior or placement introduces blocking or interferes with NAT/routing.",
+    "Firewall ACLs/policies can fail to block expected traffic due to mismatches: policy ordering, address-object/NAT translation differences, service definition (FortiGate 'PING' vs crafted ICMP), or asymmetric routing — logs and packet captures are needed to diagnose.",
+    "Preserving the Caldera agent checks (LAN ICMP and internet HTTPS) is critical and easily affected by topology changes; every network mitigation must validate those checks immediately after deployment.",
+    "Layered mitigation (host + network) and verification (policy hit counts, packet captures, IPS logs) are required — no single action reliably meets both immediate stoppage and durable protection while preserving agent checks."
+  ],
+  "overall_conclusion": "Multiple mitigations were attempted. Inserting an inline Snort IPS and disabling the hping3 binary each stopped the active flood in the short term, but the Snort insertion caused unintended outbound HTTPS disruption and the host-level binary removal is not durable. Attempts to block the flood using narrowly scoped FortiGate deny policies did not succeed, likely due to policy matching or ordering/NAT issues. The attack was intermittently mitigated but no single change both permanently prevented the flood and preserved all required agent checks. Recommended next steps for a human operator are prioritized forensic capture (packet captures on FortiGate LAN/WAN), check FortiGate policy order and policy hit counters, tune IPS or create a broad ICMP protocol deny or per-host rate-limit at egress (ensuring agent checks pass), and add monitoring/whitelisting to prevent re-deployment of attack tools." 
+}

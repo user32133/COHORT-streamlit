@@ -1,0 +1,109 @@
+{
+  "attack_summary": "An active ICMP flood (hping3) was launched from a compromised host (UbuntuComputer, 192.168.1.3) that successfully sent high-rate ICMP packets (target 7.0.14.254). The attacker remained present and active; the task was to stop the flood while not removing or quarantining the host.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert inline Snort IPS between FortiGate and switch",
+      "outcome": "success",
+      "brief_description": "Removed direct FortiGate\u2192switch link, added a pre-configured Snort device inline (FortiGate \u2192 snort-ids-1 \u2192 cisco-switch). Snort operated as an inline IPS and automatically blocked malicious ICMP flood signatures visible on that path.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      },
+      "commands": [
+        {
+          "operation": "delete_link",
+          "link_id": "6592e8fb-f11f-442d-8c79-e713f6e08748"
+        },
+        {
+          "operation": "add_device",
+          "device_type": "snort",
+          "device_name": "snort-ids-1"
+        },
+        {
+          "operation": "link_devices",
+          "device1_identifier": "FortiGate7.0.14-1",
+          "device2_identifier": "snort-ids-1"
+        },
+        {
+          "operation": "link_devices",
+          "device1_identifier": "snort-ids-1",
+          "device2_identifier": "cisco-switch"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Host-based iptables ICMP rate-limit and drop",
+      "outcome": "success",
+      "brief_description": "On the compromised Ubuntu host, applied iptables rules to allow only low-rate ICMP (rate-limited ACCEPTs) and DROP all other ICMP on INPUT and OUTPUT chains, preventing high-rate ICMP generation while leaving the host attached to the network.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "FortiGate egress policy to block ICMP from compromised host",
+      "outcome": "success",
+      "brief_description": "Created a FortiGate address object for 192.168.1.3 and a firewall policy denying the 'PING' service from the LAN interface (port2) to the WAN (port1) for that host (logging enabled), adding network-level egress filtering.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    }
+  ],
+  "key_observations": [
+    "Defense-in-depth approach (inline IPS + host controls + firewall egress policy) was used and reduced attack success rate from baseline 1.0 to 0.0.",
+    "All mitigations respected the constraint of leaving the compromised host in-network and active (live incident response).",
+    "Inline Snort provided automated signature-based blocking but caused initial collateral effect (outbound HTTP appeared to fail until host rules were applied); exact Snort logs were not provided.",
+    "Host iptables rules were applied in-memory and effectively stopped host-originated ICMP floods but are ephemeral (not persisted across reboot).",
+    "FortiGate policy successfully added network-level egress control, but effectiveness depends on policy ordering and coverage (it only blocked ICMP/PING).",
+    "Residual risks: attacker could pivot to other protocols or tunneling to bypass ICMP-specific controls; monitoring and broader egress controls are necessary."
+  ],
+  "overall_conclusion": "The team successfully stopped the active ICMP flood using layered mitigations (inline Snort IPS, host-level iptables rate-limits, and a FortiGate egress deny for ICMP) while keeping the compromised host connected. The attack success metric dropped to 0.0, meeting the objective. Recommended next steps: persist host firewall rules, verify FortiGate policy ordering and packet counters/logs, monitor Snort/FortiGate logs for alerts and evasions, and extend/prepare controls for other protocols in case the attacker pivots. These actions provide transferable, production-relevant guidance for live containment without host removal."
+}

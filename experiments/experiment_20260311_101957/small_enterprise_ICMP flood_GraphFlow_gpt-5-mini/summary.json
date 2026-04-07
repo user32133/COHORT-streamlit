@@ -1,0 +1,32 @@
+{
+  "attack_summary": "An active ICMP flood (hping3-generated ICMP echo requests) originated from a compromised Ubuntu host (192.168.1.3, also with 203.0.113.2) inside the LAN, attempting to flood an external target (7.0.14.254). The attacker\u2019s agent (splunkd) remained live and the mitigation constraint forbade removing/quarantining the host; mitigations had to stop the flood while the adversary stayed on the network.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert LAN-side Snort IPS inline (FortiGate -> Snort -> Switch)",
+      "outcome": "success",
+      "brief_description": "Added a preconfigured Snort IPS device inline between the FortiGate and the Cisco switch (removed FortiGate<->switch link, added snort, re-linked FortiGate->snort->switch). Snort ran in inline IPS mode and automatically blocked malicious ICMP patterns, initially dropping the ICMP flood at the LAN edge without touching the compromised host."
+    },
+    {
+      "number": 2,
+      "name": "FortiGate perimeter controls: deny-PING firewall rule and DoS attempts",
+      "outcome": "success",
+      "brief_description": "Implemented an edge firewall deny rule blocking the PING service from the LAN interface to the WAN (ensured rule was placed at top/priority so it was matched before broad allow/NAT). Attempts to create FortiOS DoS/anomaly sensor via CLI produced parse errors and were not fully applied, but the top-priority deny-PING rule effectively prevented ICMP egress to the WAN when ordered correctly."
+    },
+    {
+      "number": 3,
+      "name": "Switch interface policing (MQC) + CoPP + host nftables egress rate-limits",
+      "outcome": "failure",
+      "brief_description": "Created ACLs/class-maps/policy-maps on the Cisco switch to police ICMP from the host and applied service-policy inbound on access ports and the uplink; added a control-plane service-policy (CoPP) and added nftables OUTPUT rules on the Ubuntu host to rate-limit echo-requests. Despite these layered changes, metrics and final validation showed the ICMP flood still succeeded (attack success rate remained 1.0), indicating the policing did not match or limit the actual attack traffic effectively."
+    }
+  ],
+  "key_observations": [
+    "Defense-in-depth was pursued: inline IPS, perimeter firewall rules, switch policing, and host egress controls were attempted \u2014 layered controls are appropriate for live-response when the host cannot be removed.",
+    "Inline Snort insertion and a correctly-ordered top-priority firewall deny rule both proved effective when applied properly; ordering and placement matter (firewall policies evaluate top-to-bottom).",
+    "Platform/configuration mismatches caused problems: FortiOS DoS CLI parameters differed by version and CLI attempts failed; switch policer semantics (bps vs pps) and ACL matching semantics impacted effectiveness.",
+    "Misconfiguration and verification gaps were recurrent issues: initial firewall policy ordering error made the deny ineffective until corrected; switch policers showed zero matches until rules and coverage (secondary host IP, uplink) were added and still did not stop the flood.",
+    "Source-based classification is brittle: attacker had multiple addresses (192.168.1.3 and 203.0.113.2) and source-IP-only matches are susceptible to evasion/spoofing; MAC-based, host-based egress filtering, and network-level anomaly detection help mitigate evasion.",
+    "Operational validation (policy hit counters, packet captures, Snort/FortiGate logs, controlled traffic tests) is essential \u2014 many changes required iterative testing and tuning (CIR/BC, pps vs bps, ACL coverage) to be effective."
+  ],
+  "overall_conclusion": "Multiple mitigations were attempted. The inline Snort IPS insertion and a correctly-ordered FortiGate top-priority deny-PING rule were demonstrably effective when correctly applied. However, the final attempt (MQC policing + CoPP + nftables) did not stop the active ICMP flood in validation; policers did not match or throttle the attack traffic effectively. The session highlights that correct placement, rule ordering, platform-specific syntax, comprehensive classification (covering all host addresses and ICMP types), and immediate verification (logs/counters/pcap) are required. Recommended next steps for a production-transferable solution: keep Snort inline, ensure FortiGate DoS/anomaly sensors are configured via the correct GUI/CLI for the device version, use host egress rate-limits, tune switch policers with pps-aware controls or calculated bps for expected packet sizes, broaden classification (include secondary IP/MAC) and add continuous monitoring (policy hits/pcap/Snort/FortiGate logs) before declaring the attack fully mitigated."
+}

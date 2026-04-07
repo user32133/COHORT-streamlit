@@ -1,0 +1,64 @@
+{
+  "attack_summary": "A compromised Ubuntu host (UbuntuComputer, IP 192.168.1.3) running an attacker agent performed an ICMP flood (hping3) targeting 7.0.14.254 (network/WAN address). The attacker has elevated privileges on the host and remains active in the environment.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Inline Snort IPS insertion",
+      "outcome": "success",
+      "brief_description": "Deleted the direct FortiGate\u2192switch link, added a pre-configured Snort device (snort-ids-1) and linked FortiGate \u2192 snort \u2192 Cisco switch to place an inline LAN-side IPS to detect/drop malicious ICMP signatures. Implementation of topology changes succeeded; operational blocking was not directly validated due to a separate validation run error.",
+      "commands": [
+        {
+          "operation": "delete_link",
+          "link_id": "97f28e7c-c419-4b1a-8396-df8c20dbb8e2"
+        },
+        {
+          "operation": "add_device",
+          "device_type": "snort",
+          "device_name": "snort-ids-1"
+        },
+        {
+          "operation": "link_devices",
+          "device1_identifier": "FortiGate7.0.14-1",
+          "device2_identifier": "snort-ids-1"
+        },
+        {
+          "operation": "link_devices",
+          "device1_identifier": "snort-ids-1",
+          "device2_identifier": "cisco-switch"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Host-based egress filtering (iptables OUTPUT rule)",
+      "outcome": "success",
+      "brief_description": "On the compromised UbuntuComputer added an iptables OUTPUT rule to DROP outbound ICMP to 7.0.14.254 (iptables -I OUTPUT -p icmp -d 7.0.14.254 -j DROP). The rule was present on the host and testing/validation indicated the ICMP flood to that target was stopped while preserving other connectivity.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "Switch ingress ACL blocking ICMP",
+      "outcome": "success",
+      "brief_description": "Created and applied an extended ACL on the Cisco switch (BLOCK_ICMP_UBUNTU) denying icmp from 192.168.1.3 to 7.0.14.254 and applied it inbound on the host-facing interface (Gi0/1). Commands executed without syntax errors; ACL counters/explicit dumps were not captured in the session output but configuration was applied as reported."
+    }
+  ],
+  "key_observations": [
+    "Attack vector: ICMP flood originated on host 192.168.1.3 targeting 7.0.14.254 (fact captured by operation report).",
+    "Layered/defense-in-depth approach used: network IPS (Snort), host egress filter (iptables), and switch ACL \u2014 complementary controls reduced single-point reliance on signatures.",
+    "Host-based control (iptables) provided immediate, verified containment but is transient because attacker has root and can remove or alter rules; persistence and tamper-resistance are needed.",
+    "Snort insertion respected environment constraints (pre-configured LAN-side inline IPS) and was implemented correctly in topology, but its effectiveness was not directly proven in one validation run due to an unrelated execution error.",
+    "Switch ACL offers a more persistent network-level block than host rules and helps prevent egress even if host-side controls are removed; however it is narrowly scoped and can be bypassed if attacker changes target/protocol or moves laterally."
+  ],
+  "overall_conclusion": "The team successfully stopped the active ICMP flood by combining mitigations: an inline Snort IPS was inserted (topology change successful), a host iptables OUTPUT drop was applied and verified (immediate, effective containment), and a switch-level ACL was added (network persistence). These actions respected the constraint not to remove or quarantine the compromised host and achieved mitigation (attack success rate reduced to zero for the observed vector). Recommended next steps: make host rule persistent and monitor/lock it where possible, add FortiGate egress rate-limiting or ACLs for broader protection, review Snort logs and switch/FortiGate counters to confirm ongoing drops, perform host hardening/forensics, and plan remediation because the attacker retains root access."
+}

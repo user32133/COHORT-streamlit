@@ -1,0 +1,77 @@
+{
+  "attack_summary": "An ICMP flood originating from a compromised Ubuntu host (hping3) targeting the enterprise LAN and Internet path, causing potential resource exhaustion and service disruption.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Remove/disable hping3 on compromised host",
+      "outcome": "success",
+      "brief_description": "Disabled/removed the hping3 binary on the compromised Ubuntu host to eliminate local ICMP flood capability.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 2,
+      "name": "Enable control-plane protection and egress blocking (CoPP and FortiGate rate-limiting)",
+      "outcome": "failure",
+      "brief_description": "Configured Cisco CoPP and FortiGate policies intended to block ICMP egress and protect device CPU, but the ICMP flood continued due to a rule/scope mismatch or logical gap.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "QoS / traffic shaping (ingress policing + low-priority queue)",
+      "outcome": "success",
+      "brief_description": "Applied token-bucket policing and low-priority queuing on FortiGate and access switch to deprioritize and shape ICMP traffic, preventing saturation while preserving legitimate management and HTTP traffic.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    }
+  ],
+  "key_observations": [
+    "Host-level removal of the attack tool immediately stopped local attack traffic but does not remove persistence or prevent re-installation.",
+    "Network egress/control-plane rules can fail if selectors (source IP/interface/zone) or rule scope are incorrect; validation showed the CoPP/egress attempt did not interrupt the flood.",
+    "QoS/traffic-shaping successfully preserved availability by rate-limiting volumetric ICMP traffic without breaking legitimate LAN pings or external HTTP connectivity.",
+    "Successful mitigations preserved required connectivity (LAN ping and external HTTP checks) while reducing attack impact.",
+    "Defenses are complementary: host hardening plus properly scoped network controls and QoS provide layered protection."
+  ],
+  "overall_conclusion": "A layered approach was effective: disabling the offending tool on the host and applying QoS/ingress policing both stopped the ICMP flood while preserving legitimate traffic. The attempted control-plane/egress policy failed due to configuration scope issues and should be reviewed and corrected. Follow-up actions should include removing persistence on the host, hardening host and network controls, validating rule scopes, and retaining QoS to protect availability against future volumetric floods."
+}

@@ -1,0 +1,306 @@
+{
+  "attack_summary": "An attacker controlling a compromised Ubuntu host (splunkd agent, 192.168.1.3) used hping3 to generate a high-rate ICMP flood (target 7.0.14.254) from inside the LAN (T1498.001). The agent also performs a LAN ICMP ping to 192.168.1.2 and an HTTPS check to 1.1.1.1 that must remain functional during mitigation.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "FortiGate DoS/anti-ICMP protections + inline Snort IPS + firewall rules",
+      "outcome": "success",
+      "brief_description": "Created FortiGate DoS-policy and firewall objects/policies, inserted a Snort device inline between FortiGate and the internal switch, and scoped rules to allow agent ICMP/HTTP while blocking high-rate ICMP. Iterated to correct CLI errors and policy ordering; final state applied and used as a primary network control.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 2,
+      "name": "Transparent Squid proxy forcing HTTP/HTTPS",
+      "outcome": "failure",
+      "brief_description": "Inserted a Squid proxy and created FortiGate policies to force web flows through it. Proxy container lacked netfilter tools and does not filter raw ICMP; it could not stop the ICMP flood and could have broken connectivity, so this approach failed in this environment.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "Disable/remove hping3 on the compromised host",
+      "outcome": "success",
+      "brief_description": "Disabled execution (chmod -x /usr/sbin/hping3) and moved the binary to /usr/sbin/hping3.disabled. Verified splunkd remained running and both Caldera checks (LAN ICMP and HTTP) continued to succeed.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 4,
+      "name": "Insert Snort inline IPS (standalone insertion)",
+      "outcome": "success",
+      "brief_description": "Added the preconfigured Snort device inline (FortiGate -> snort -> switch). Snort detected/dropped abusive ICMP patterns; tests showed hping3 floods were blocked while agent checks remained functional.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 5,
+      "name": "Per-access-port ingress policing (Cisco switch MQC policer)",
+      "outcome": "failure",
+      "brief_description": "Configured ACL + class-map + policy-map policing on the access port to limit ICMP from 192.168.1.3. Applied successfully but did not reduce attack success (attack continued), likely due to policer units/tuning or traffic characteristics.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 6,
+      "name": "Host kernel ICMP tuning + iptables OUTPUT rate-limiting",
+      "outcome": "success",
+      "brief_description": "Reduced net.ipv4.icmp_ratelimit and added iptables OUTPUT rules to allow low-rate ICMP and drop excess echo-requests; validated LAN ping and HTTP checks succeeded and the attack was mitigated.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 7,
+      "name": "FortiGate IPS sensor + traffic-shaper per-host",
+      "outcome": "failure",
+      "brief_description": "Enabled FortiGate IPS sensor and created a traffic-shaper and host-specific policy. Initial CLI and policy-ordering issues reduced effectiveness; despite later corrections the configured shaper/policies did not demonstrably stop the flood in one iteration.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 8,
+      "name": "Switch DHCP Snooping + DAI + IP Source Guard",
+      "outcome": "failure",
+      "brief_description": "Enabled DHCP snooping and ARP inspection and configured port-security. Attempts to add static DHCP-snooping bindings were rejected by the switch CLI, so IP Source Guard could not be enforced and this approach remained incomplete.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 9,
+      "name": "Host-based allowlisting approximation (chattr + iptables) and egress filtering",
+      "outcome": "partial_failure",
+      "brief_description": "Disabled known binaries (chmod/chattr), added iptables/nft rules to allow agent traffic and rate-limit/drop ICMP to the target. This stopped the immediate vector but is reversible by a root adversary and is not a full LSM-based allowlisting enforcement.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 10,
+      "name": "Attempted per-process eBPF/XDP enforcement (implemented with nftables fallback)",
+      "outcome": "partial_failure",
+      "brief_description": "Planned eBPF/XDP per-UID/per-process limits were not implementable in the environment; nftables rules plus Snort were used instead. Final nft rules accepted a low ICMP rate to the target and dropped excess, but per-process scoping (true eBPF) was not achieved.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 11,
+      "name": "Micro-segmentation via FortiGate host-specific east-west policies",
+      "outcome": "success",
+      "brief_description": "Created host-specific FortiGate address objects and policies denying ICMP to the flood target, allowed HTTPS to the validation host, and disabled hping3. This confined the host's egress and preserved agent checks; combined with network controls it contributed to mitigation.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 12,
+      "name": "802.1X NAC (intended) \u2192 implemented compensating MQC policer",
+      "outcome": "failure",
+      "brief_description": "Full 802.1X was not feasible (no RADIUS); a per-port MQC policer was applied as compensating control. The policer was correctly configured but did not reduce attack success (likely due to rate units, packet size, or attacker tactics).",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 13,
+      "name": "FortiGate QoS: prioritize agent traffic + per-policy ICMP throttle",
+      "outcome": "failure",
+      "brief_description": "Created per-policy shapers and prioritized agent HTTPS while adding an ICMP-Throttle policy. Initial policy-order problems were fixed, but the FortiGate shaping did not stop the attack in validation (attack success remained) in the observed runs.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 14,
+      "name": "Enforce signed-package / repo allowlisting (narrow host actions + Snort)",
+      "outcome": "partial_success",
+      "brief_description": "Renamed hping3 and added an apt pin preventing apt installs of hping3; inserted Snort inline. The attack was stopped in the end (network IPS + host pin), and agent checks passed, but the global signed-package and repository allowlisting policy was not fully implemented and host changes are reversible by a root adversary.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    }
+  ],
+  "key_observations": [
+    "Defense-in-depth worked: multiple network-layer controls (FortiGate rules, Snort inline IPS) were the most reliable mitigations; host-only measures without network enforcement were often reversible or insufficient.",
+    "Policy ordering and rule scope matter: broad permissive rules above specific throttles allowed bypass; correct ordering and tight scoping (avoid accidental allow for attacker-host) were repeatedly required.",
+    "Host fixes are useful but not durable against root: disabling the hping3 binary and apt pinning provided immediate relief but are reversible by a root-capable adversary; durable prevention requires LSM/allowlisting or locked images.",
+    "Tooling and platform limits matter: container images, FortiOS CLI syntax, and switch IOS variations caused failed commands and required iterative correction; pre-checks and known-good commands reduce iteration.",
+    "Inline IPS (Snort) proved effective and safe: placing Snort between firewall and switch consistently blocked the flood while preserving Caldera agent validations, making it the most robust single control in this exercise.",
+    "Validation is essential: after every mitigation the agent\u2019s two checks (LAN ICMP and HTTP) had to be validated; several attempts initially risked breaking these and needed correction."
+  ],
+  "overall_conclusion": "The team ultimately stopped the active ICMP flood while preserving the Caldera agent's LAN ping and internet HTTP checks by using layered measures: network-level inline IPS (Snort) plus targeted FortiGate policies and host-level tool disablement and rate-limiting. Many attempted mitigations failed or were incomplete (Squid proxy, some switch policers, eBPF plan), but iterative corrections converged on an effective defense-in-depth outcome. Key takeaways: prioritize network-layer controls (inline IPS, correctly ordered firewall policies) for live attacks, use host hardening as a complementary (not sole) control, and validate agent connectivity after each change. For durable prevention, follow up with signed-package enforcement, true host allowlisting (LSM/EDR), and automated telemetry-driven orchestration."
+}

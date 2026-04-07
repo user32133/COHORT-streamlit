@@ -1,0 +1,52 @@
+{
+  "attack_summary": "A compromised internal Ubuntu host (UbuntuComputer, 192.168.1.3) under attacker control (server 203.0.113.1) executed an active ICMP flood (hping3) against the edge/gateway (7.0.14.254) to cause a network denial-of-service (T1498.001). The agent also performed discovery (ping to LAN 192.168.1.2) and internet connectivity checks. The attacker remained active and host removal/isolation was not allowed.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert inline Snort IDS/IPS between FortiGate and LAN switch",
+      "outcome": "success",
+      "brief_description": "Deleted the existing FortiGate<->switch link, added a pre-configured Snort IPS (snort-ids-1) and reconnected FortiGate -> Snort -> Cisco switch. The inline Snort inspected and blocked the malicious ICMP flood while preserving LAN and Internet connectivity.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      },
+      "commands": [
+        {
+          "operation": "delete_link",
+          "link_id": "b3f419eb-58fa-4d43-94a3-e78cbfc76cfa"
+        },
+        {
+          "operation": "add_device",
+          "device_type": "snort",
+          "device_name": "snort-ids-1"
+        },
+        {
+          "operation": "link_devices",
+          "device1_identifier": "FortiGate7.0.14-1",
+          "device2_identifier": "snort-ids-1"
+        },
+        {
+          "operation": "link_devices",
+          "device1_identifier": "snort-ids-1",
+          "device2_identifier": "cisco-switch"
+        }
+      ]
+    }
+  ],
+  "key_observations": [
+    "Attack vector: outbound ICMP flood originated from a compromised internal host (UbuntuComputer) using hping3 to flood 7.0.14.254.",
+    "Inline IPS insertion (FortiGate -> Snort -> switch) is effective in this topology to stop ICMP floods without disconnecting the infected host or blocking legitimate traffic.",
+    "Validation showed attack success rate fell from 1.0 to 0.0 and legitimate checks (LAN ping and HTTP to 1.1.1.1) remained functional.",
+    "Mitigation depends on Snort's pre-configured rule set; gaps are possible if attacker changes flood characteristics or switches to other protocols (TCP/UDP) or evasion techniques.",
+    "All actions respected live-response constraints: the compromised host remained on-network and no host-level remediation (isolation/reimage) was performed."
+  ],
+  "overall_conclusion": "Placing a pre-configured inline Snort IPS between the firewall and internal switch successfully stopped the active ICMP flood while preserving legitimate connectivity and complying with live-response constraints; however, continued monitoring and additional controls (egress filtering, firewall rate-limits, telemetry) are recommended because protection relies on the Snort rule set and the attacker may change tactics."
+}

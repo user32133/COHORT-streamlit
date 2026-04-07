@@ -1,0 +1,118 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Deploy a Snort IPS inline on the LAN side between the FortiGate and the internal switch so the appliance can automatically detect and block ICMP flood and anomalous traffic patterns.",
+      "tool_calls": [
+        {
+          "operation": "delete_link",
+          "args": {
+            "link_id": "0466cf25-c972-4ad5-a0ab-8cb48fd6cefe"
+          },
+          "link_endpoint_devices": [
+            "FortiGate7.0.14-1",
+            "cisco-switch"
+          ]
+        },
+        {
+          "operation": "add_device",
+          "args": {
+            "device_type": "snort",
+            "device_name": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "FortiGate7.0.14-1",
+            "device2_identifier": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "snort-ids-1",
+            "device2_identifier": "cisco-switch"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 2,
+      "mitigation_name": "Enable and configure FortiGate DoS/ICMP protection and rate-limiting on the firewall (create DoS sensors/thresholds on the relevant WAN and LAN interfaces) to throttle and drop abusive ICMP traffic at the network edge.",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show system interface"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"MITIGATE_BLOCK_ICMP_LAN_TO_WAN\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"all\"\nset dstaddr \"all\"\nset action deny\nset schedule \"always\"\nset service \"PING\"\nset logtraffic all\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall DoS-policy\nedit 0\nset name \"ICMP_RATE_LIMIT\"\nset interface \"port1\"\nset status enable\nset service \"PING\"\nset dos-log enable\nset src-addr \"all\"\nset dst-addr \"all\"\nset action block\nset block-duration 60\nset audit 1\nset anomaly {\"icmp\":200}\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall DoS-policy"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall DoS-policy\nedit 1\nset name \"ICMP_RATE_LIMIT\"\nset interface \"port1\"\nset status enable\nset service \"PING\"\nset srcaddr \"all\"\nset dstaddr \"all\"\nset action block\nset block-duration 60\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\ndelete 1\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\nset name \"LAN-to-WAN-NAT\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"all\"\nset dstaddr \"all\"\nset action accept\nset schedule \"always\"\nset service \"ALL\"\nset nat enable\nnext\nedit 2\nset name \"MITIGATE_BLOCK_ICMP_LAN_TO_WAN\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"all\"\nset dstaddr \"all\"\nset action deny\nset schedule \"always\"\nset service \"PING\"\nset logtraffic all\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ip a"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"MITIGATE_BLOCK_ICMP_LAN_TO_WAN_TOP\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"all\"\nset dstaddr \"all\"\nset action deny\nset schedule \"always\"\nset service \"PING\"\nset logtraffic all\nnext\nend"
+          }
+        }
+      ]
+    }
+  ]
+}

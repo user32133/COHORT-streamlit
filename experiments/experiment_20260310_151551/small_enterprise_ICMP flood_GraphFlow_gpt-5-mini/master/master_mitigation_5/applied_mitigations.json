@@ -1,0 +1,167 @@
+{
+  "total_applied": 1,
+  "mitigations": [
+    {
+      "mitigation_number": 2,
+      "mitigation_name": "Enable strict egress filtering and DoS protection on the FortiGate perimeter firewall: enforce per-source ICMP rate-limits / traffic policing, enable anti-spoofing (unicast RPF/ingress filtering), and apply DoS/connection limits so a single internal host cannot generate high-rate ICMP floods to external hosts.",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"compromised-host\"\nset subnet 192.168.1.3 255.255.255.255\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall service custom\nedit \"ICMP\"\nset protocol 1\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\nset name \"block-icmp-egress\"\nset srcintf \"Port2\"\nset dstintf \"Port1\"\nset srcaddr \"compromised-host\"\nset dstaddr \"all\"\nset action deny\nset schedule \"always\"\nset service \"PING\"\nset logtraffic all\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show system interface"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\nset srcintf \"port2\"\nset dstintf \"port1\"\nset status enable\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config system interface\nedit \"port2\"\nset src-check enable\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall DoS-policy\nedit 1\nset interface \"port2\"\nset srcaddr \"compromised-host\"\nset service \"PING\"\nset status enable\nset log enable\nset anomaly imap enable\nset rule 1\nset status enable\nconfig rule\nedit 1\nset protocol 1\nset per-ip 100\nset action block\nnext\nend\nnext\nend"
+          }
+        }
+      ]
+    }
+  ],
+  "failed_mitigation": {
+    "mitigation_number": 5,
+    "mitigation_name": "Enable port-security, DHCP snooping and dynamic ARP inspection on the internal Cisco switch to prevent MAC/IP spoofing, bind hosts to their access ports, and stop an attacker from impersonating other hosts or evading network controls.",
+    "tool_calls": [
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "show mac address-table"
+        }
+      },
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "enable"
+        }
+      },
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "configure terminal"
+        }
+      },
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "interface range GigabitEthernet0/1 - 0/6"
+        }
+      },
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "interface range GigabitEthernet0/1 - 0/5"
+        }
+      },
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "interface range GigabitEthernet1/0 - 1/6"
+        }
+      },
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "show running-config | include interface|switchport|port-security|ip dhcp snooping|ip arp inspection"
+        }
+      },
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "ip dhcp snooping\nip dhcp snooping vlan 1\nip arp inspection vlan 1\ninterface GigabitEthernet0/0\n ip dhcp snooping trust\n ip arp inspection trust\nexit\ninterface range GigabitEthernet0/1 - 6\n switchport mode access\n switchport port-security\n switchport port-security maximum 2\n switchport port-security violation restrict\n switchport port-security mac-address sticky\nend\nwrite memory"
+        }
+      },
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "configure terminal\ninterface GigabitEthernet0/1\n switchport mode access\n switchport port-security\n switchport port-security maximum 2\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/2\n switchport mode access\n switchport port-security\n switchport port-security maximum 2\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/3\n switchport mode access\n switchport port-security\n switchport port-security maximum 2\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/4\n switchport mode access\n switchport port-security\n switchport port-security maximum 2\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/5\n switchport mode access\n switchport port-security\n switchport port-security maximum 2\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/6\n switchport mode access\n switchport port-security\n switchport port-security maximum 2\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\nend\nwrite memory"
+        }
+      },
+      {
+        "operation": "send_command",
+        "args": {
+          "device_identifier": "cisco-switch",
+          "command": "configure terminal\ninterface GigabitEthernet0/1\n switchport mode access\n switchport port-security\n switchport port-security maximum 1\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/2\n switchport mode access\n switchport port-security\n switchport port-security maximum 1\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/3\n switchport mode access\n switchport port-security\n switchport port-security maximum 1\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/4\n switchport mode access\n switchport port-security\n switchport port-security maximum 1\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/5\n switchport mode access\n switchport port-security\n switchport port-security maximum 1\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\ninterface GigabitEthernet0/6\n switchport mode access\n switchport port-security\n switchport port-security maximum 1\n switchport port-security violation restrict\n switchport port-security mac-address sticky\n exit\nend\nwrite memory"
+        }
+      },
+      {
+        "operation": "delete_link",
+        "args": {
+          "link_id": "2c06b632-8ba8-4653-95c3-1af23cd8637a"
+        },
+        "link_endpoint_devices": [
+          "FortiGate7.0.14-1",
+          "cisco-switch"
+        ]
+      },
+      {
+        "operation": "add_device",
+        "args": {
+          "device_type": "snort",
+          "device_name": "snort-ids-1"
+        }
+      },
+      {
+        "operation": "link_devices",
+        "args": {
+          "device1_identifier": "FortiGate7.0.14-1",
+          "device2_identifier": "snort-ids-1"
+        }
+      },
+      {
+        "operation": "link_devices",
+        "args": {
+          "device1_identifier": "snort-ids-1",
+          "device2_identifier": "cisco-switch"
+        }
+      }
+    ]
+  }
+}

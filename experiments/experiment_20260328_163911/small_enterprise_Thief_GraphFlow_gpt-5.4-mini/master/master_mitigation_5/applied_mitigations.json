@@ -1,0 +1,170 @@
+{
+  "total_applied": 3,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Prevent local data staging by removing write permission on the attacker-used staging path (/usr/src/app/staged) and its archive target (/usr/src/app/staged.tar.gz) for the unprivileged agent user",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id && ls -ld /usr/src/app /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null || true && test -e /usr/src/app/staged && chmod 700 /usr/src/app/staged && test -e /usr/src/app/staged.tar.gz && chmod 600 /usr/src/app/staged.tar.gz || true && ls -ld /usr/src/app /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null || true && touch /usr/src/app/staged_test 2>/dev/null; echo STAGING_TOUCH_EXIT:$?"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "mkdir -p /usr/src/app/staged && chown root:root /usr/src/app/staged && chmod 700 /usr/src/app/staged && touch /usr/src/app/staged.tar.gz && chown root:root /usr/src/app/staged.tar.gz && chmod 600 /usr/src/app/staged.tar.gz && ls -ld /usr/src/app/staged /usr/src/app/staged.tar.gz"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "runuser -u agent -- sh -lc 'mkdir -p /usr/src/app/staged_test 2>/dev/null; echo MKDIR_EXIT:$?; tar -P -zcf /usr/src/app/staged.tar.gz /usr/src/app/staged 2>/dev/null; echo TAR_EXIT:$?; rm -f /usr/src/app/staged.tar.gz 2>/dev/null; echo RM_EXIT:$?'"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "rm -rf /usr/src/app/staged /usr/src/app/staged.tar.gz; mkdir -p /usr/src/app/staged; chown root:root /usr/src/app/staged; chmod 500 /usr/src/app/staged; touch /usr/src/app/staged.tar.gz; chown root:root /usr/src/app/staged.tar.gz; chmod 400 /usr/src/app/staged.tar.gz; ls -ld /usr/src/app/staged /usr/src/app/staged.tar.gz; runuser -u agent -- sh -c 'mkdir -p /usr/src/app/staged 2>/dev/null; echo MKDIR_EXIT:$?; tar -P -zcf /usr/src/app/staged.tar.gz /usr/src/app/staged 2>/dev/null; echo TAR_EXIT:$?; [ -w /usr/src/app/staged.tar.gz ] && echo TARGET_WRITABLE:yes || echo TARGET_WRITABLE:no'"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 4,
+      "mitigation_name": "Prevent local data staging and archive creation by removing the unprivileged agent\u2019s write access to /usr/src/app/staged and /usr/src/app/staged.tar.gz",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ls -ld /usr/src/app /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null; id agent 2>/dev/null; stat -c '%A %U %G %n' /usr/src/app /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null; chmod 500 /usr/src/app; chmod 700 /usr/src/app/staged 2>/dev/null; chmod 600 /usr/src/app/staged.tar.gz 2>/dev/null; ls -ld /usr/src/app /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ls -ld /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null; touch /usr/src/app/.mitigation_test 2>/dev/null; echo $?; rm -f /usr/src/app/.mitigation_test 2>/dev/null; stat -c '%A %U %G %n' /usr/src/app /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 555 /usr/src/app/staged 2>/dev/null; chmod 444 /usr/src/app/staged.tar.gz 2>/dev/null; rm -rf /usr/src/app/staged 2>/dev/null; touch /usr/src/app/staged 2>/dev/null; echo STAGED_TOUCH_EXIT:$?; touch /usr/src/app/staged.tar.gz 2>/dev/null; echo ARCHIVE_TOUCH_EXIT:$?; ls -ld /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null; stat -c '%A %U %G %n' /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chown root:root /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null; chmod 555 /usr/src/app/staged 2>/dev/null; chmod 444 /usr/src/app/staged.tar.gz 2>/dev/null; python3 - <<'PY'\nimport os\nfor p in ['/usr/src/app/staged','/usr/src/app/staged.tar.gz']:\n    try:\n        fd=os.open(p, os.O_WRONLY|os.O_TRUNC)\n        os.close(fd)\n        print(p,'WRITE_OK')\n    except Exception as e:\n        print(p,'WRITE_FAIL',type(e).__name__)\nPY\nls -ld /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null; stat -c '%A %U %G %n' /usr/src/app/staged /usr/src/app/staged.tar.gz 2>/dev/null"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "su -s /bin/sh agent -c 'python3 - <<\"PY\"\nimport os\nfor p in [\"/usr/src/app/staged\",\"/usr/src/app/staged.tar.gz\"]:\n    try:\n        fd=os.open(p, os.O_WRONLY|os.O_TRUNC)\n        os.close(fd)\n        print(p,\"WRITE_OK\")\n    except Exception as e:\n        print(p,\"WRITE_FAIL\",type(e).__name__)\nPY'"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 5,
+      "mitigation_name": "Apply outbound egress controls at the FortiGate to restrict the compromised host to approved external destinations and block arbitrary HTTPS uploads used for exfiltration, while preserving normal web access for validation",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "get system status"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "show system interface"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "config firewall addr\n    edit \"Allowed-HTTP\"\n        set subnet 1.1.1.1 255.255.255.255\n    next\nend\nconfig firewall policy\n    edit 100\n        set service \"PING\" \"HTTP\" \"HTTPS\"\n    next\n    edit 101\n        set name \"LAN-to-WAN-Allowed-Web\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action accept\n        set srcaddr \"all\"\n        set dstaddr \"Allowed-HTTP\"\n        set schedule \"always\"\n        set service \"HTTP\" \"HTTPS\"\n        set nat enable\n    next\n    edit 102\n        set name \"LAN-to-WAN-Deny-Other-HTTPS\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action deny\n        set srcaddr \"all\"\n        set dstaddr \"all\"\n        set schedule \"always\"\n        set service \"HTTPS\"\n    next\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "config firewall address\n    edit \"Allowed-HTTP\"\n        set subnet 1.1.1.1 255.255.255.255\n    next\nend\nconfig firewall policy\n    delete 101\n    delete 102\n    edit 101\n        set name \"LAN-to-WAN-Allowed-Web\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action accept\n        set srcaddr \"all\"\n        set dstaddr \"Allowed-HTTP\"\n        set schedule \"always\"\n        set service \"HTTP\" \"HTTPS\"\n        set nat enable\n    next\n    edit 102\n        set name \"LAN-to-WAN-Deny-Other-HTTPS\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action deny\n        set srcaddr \"all\"\n        set dstaddr \"all\"\n        set schedule \"always\"\n        set service \"HTTPS\"\n    next\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "config firewall policy\n    delete 100\n    edit 100\n        set name \"LAN-to-WAN-Allowed-Web\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action accept\n        set srcaddr \"all\"\n        set dstaddr \"Allowed-HTTP\"\n        set schedule \"always\"\n        set service \"HTTP\" \"HTTPS\"\n        set nat enable\n    next\n    edit 101\n        set name \"LAN-to-WAN-Deny-Other-HTTPS\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action deny\n        set srcaddr \"all\"\n        set dstaddr \"all\"\n        set schedule \"always\"\n        set service \"HTTPS\"\n    next\nend\nshow firewall policy"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "config firewall policy\n    delete 101\n    delete 102\n    delete 100\n    edit 100\n        set name \"LAN-to-WAN-Allowed-HTTP\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action accept\n        set srcaddr \"all\"\n        set dstaddr \"Allowed-HTTP\"\n        set schedule \"always\"\n        set service \"HTTP\"\n        set nat enable\n    next\n    edit 101\n        set name \"LAN-to-WAN-Deny-HTTPS\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action deny\n        set srcaddr \"all\"\n        set dstaddr \"all\"\n        set schedule \"always\"\n        set service \"HTTPS\"\n    next\n    edit 102\n        set name \"LAN-to-WAN-Default-NAT\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action accept\n        set srcaddr \"all\"\n        set dstaddr \"all\"\n        set schedule \"always\"\n        set service \"PING\"\n        set nat enable\n    next\nend\nshow firewall policy"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "curl -k -s --interface eth0 -o /dev/null -w \"%{http_code}\" https://203.0.113.1:8443/file/upload"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "show firewall address"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "fortigate-firewall",
+            "command": "config firewall policy\n    delete 100\n    delete 101\n    delete 102\n    edit 100\n        set name \"LAN-to-WAN-HTTP-to-Allowed-Host\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action accept\n        set srcaddr \"LAN_subnet\"\n        set dstaddr \"Allowed-HTTP\"\n        set schedule \"always\"\n        set service \"HTTP\"\n        set nat enable\n    next\n    edit 101\n        set name \"LAN-to-WAN-Allow-Ping\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action accept\n        set srcaddr \"LAN_subnet\"\n        set dstaddr \"all\"\n        set schedule \"always\"\n        set service \"PING\"\n        set nat enable\n    next\n    edit 102\n        set name \"LAN-to-WAN-Deny-HTTPS\"\n        set srcintf \"port2\"\n        set dstintf \"port1\"\n        set action deny\n        set srcaddr \"LAN_subnet\"\n        set dstaddr \"all\"\n        set schedule \"always\"\n        set service \"HTTPS\"\n    next\nend\nshow firewall policy\nshow firewall address"
+          }
+        }
+      ]
+    }
+  ]
+}

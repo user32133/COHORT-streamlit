@@ -1,0 +1,38 @@
+{
+  "attack_summary": "A compromised Ubuntu host (192.168.1.3) actively performed an ICMP flood (hping3) against an external attacker IP (203.0.113.1). The attacker remained live in the network; mitigations had to stop the flood without removing/quarantining the host.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Deploy inline Snort IPS (LAN-side)",
+      "outcome": "success",
+      "brief_description": "Removed direct FortiGate<->switch link and inserted a pre-configured Snort device inline (FortiGate -> snort-ids-1 -> cisco-switch). Snort began inline inspection and blocking of malicious ICMP flood patterns. This immediately reduced attack traffic reaching upstream links."
+    },
+    {
+      "number": 2,
+      "name": "FortiGate egress filtering (deny policy to attacker)",
+      "outcome": "success",
+      "brief_description": "Created FortiGate address objects for UbuntuComputer (192.168.1.3) and ATTACKER_IP (203.0.113.1) and added a deny firewall policy blocking traffic from the host to the attacker. Attempts to configure FortiGate DoS/traffic-shaper partially failed due to CLI syntax/attribute errors, but the deny policy prevented outbound ICMP flows to the attacker."
+    },
+    {
+      "number": 3,
+      "name": "Access-switch port policing (per-port rate-limit)",
+      "outcome": "success",
+      "brief_description": "Applied rate-limit / policing on the Cisco access interface connected to UbuntuComputer (Gi0/1) to throttle packets-per-second and bandwidth from that host. Commands were accepted and configuration saved, limiting the host's ability to generate high-pps floods at the access layer."
+    },
+    {
+      "number": 4,
+      "name": "Host hardening: nftables + kernel rate-limits",
+      "outcome": "success",
+      "brief_description": "On the compromised UbuntuComputer applied an nftables ruleset to drop ICMP echo-request and rate-limit ICMP to 10 packets/sec (burst 20), and tuned kernel controls (ping_group_range, icmp_ratelimit) to restrict raw-socket/ICMP behavior. This reduced attack packet generation at the source while leaving the host connected."
+    }
+  ],
+  "key_observations": [
+    "Layered approach (inline IPS + firewall policy + switch policing + host hardening) was used and collectively stopped the ICMP flood (attack success rate reported 0.0).",
+    "All mitigations respected the critical constraint: the compromised host remained on the network and was not quarantined/removed.",
+    "Snort inline insertion was effective at blocking malicious patterns but initial validation showed collateral connectivity problems (LAN/Internet checks failed or were ambiguous) until additional mitigations and host rules were applied.",
+    "FortiGate DoS/traffic-shaper configuration attempts encountered CLI parse/attribute errors and were not fully applied \u2014 some upstream shaping remains incomplete and requires correct syntax/GUI or alternate configuration.",
+    "The FortiGate deny rule used service=ALL initially (coarse); narrowing to ICMP-specific service and verifying rule ordering is recommended to avoid unintended collateral blocking.",
+    "Persistent configuration and validation gaps: host nftables were applied but stored in /tmp (not persisted); no Snort/FortiGate logs or packet-capture evidence was provided to conclusively explain earlier connectivity anomalies \u2014 monitoring/pcap/log review is needed."
+  ],
+  "overall_conclusion": "The team successfully stopped the active ICMP flood using a defense-in-depth, live-response strategy without removing the compromised host: an inline Snort IPS, a targeted FortiGate deny policy, access-switch policing, and host-level nftables/sysctl rate-limits together mitigated the attack (reported success rate 0.0). Some actions (FortiGate DoS shaping) failed to apply due to CLI issues and there was initial collateral disruption to legitimate connectivity; follow-up work should narrow firewall services, verify rule ordering, persist host rules, and review Snort/FortiGate/switch logs or packet captures to validate and tune the configuration for production deployment."
+}

@@ -1,0 +1,59 @@
+{
+  "attack_summary": "A compromised Ubuntu host (UbuntuComputer, 192.168.1.3, agent rnxwtm, elevated) executed an ICMP flood (hping3) against a target (7.0.14.254) and performed discovery (LAN ping and internet HTTP check). The adversary used a direct network ICMP flood (T1498.001) from a host inside the LAN while remaining active in the environment.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert inline Snort IPS between FortiGate and LAN switch",
+      "outcome": "success",
+      "brief_description": "Removed the direct FortiGate<->switch link, added a preconfigured Snort IPS device, and reconnected so traffic flows FortiGate -> Snort -> switch. The inline Snort (preconfigured) inspected and blocked malicious ICMP flood traffic; validation at that time showed the ICMP flood success rate dropped to 0.0. Collateral effect: outbound HTTP connectivity from the compromised host was observed to fail (unexpected).",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 2,
+      "name": "Host-based egress filtering (iptables) on UbuntuComputer",
+      "outcome": "failure",
+      "brief_description": "On-host iptables rules were inserted to rate-limit outbound ICMP (ACCEPT up to 20/sec with burst 40) and then DROP remaining ICMP in the OUTPUT chain. Rules were present and verified, but validation showed the ICMP flood attack continued (attack success rate remained 1.0), so this on-host control did not stop the active attack.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    }
+  ],
+  "key_observations": [
+    "Inline, network-side IDS/IPS (preconfigured Snort in the correct inline position) can be immediately effective at blocking volumetric ICMP floods originating from compromised internal hosts.",
+    "Deploying an inline IPS can cause unintended collateral disruption to legitimate outbound connectivity (observed HTTP failure) if rules/signatures are broad or require tuning.",
+    "Host-based controls (iptables) on a compromised host with elevated attacker privileges are fragile: they can be tampered with or bypassed and in this case did not stop the ongoing attack.",
+    "Defense-in-depth is necessary: network-layer controls (firewall rate-limiting, egress ACLs, inline IPS tuning) combined with endpoint controls and monitoring provide stronger resilience than any single control.",
+    "Operational constraints (cannot remove/quarantine/rebuild host; attacker remains active) demand mitigations that block behavior in-path (network devices/IPS/firewall) rather than relying solely on the compromised endpoint."
+  ],
+  "overall_conclusion": "The team demonstrated a high-impact, immediately deployable mitigation by inserting a preconfigured inline Snort IPS between the FortiGate and internal switch; this initially reduced ICMP flood traffic to zero but introduced collateral outbound connectivity disruption and required tuning. A subsequent host-based iptables mitigation was applied but failed to stop the active attack (likely due to attacker privilege, rule bypassing, or mismatch with actual traffic). Because the attacker remained active and the final validation showed the flood continued, the incident was not fully resolved. Recommended next steps (outside the three-attempt constraint): tune IDS signatures to reduce false positives, apply FortiGate network-level rate-limiting / ICMP filtering and egress ACLs, gather IDS/firewall/host logs to determine bypass/tampering, add persistence and tamper-protection for endpoint rules only if safe, and plan safe remediation to remove the attacker once network protections are validated."
+}

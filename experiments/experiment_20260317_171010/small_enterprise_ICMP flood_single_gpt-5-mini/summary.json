@@ -1,0 +1,152 @@
+{
+  "attack_summary": "An active ICMP flood (network DoS) was launched from a compromised Ubuntu host (UbuntuComputer, 192.168.1.3) using hping3 against a WAN target (7.0.14.254). The attacker maintained access via a Splunkd-based Caldera agent which performs two live validations (LAN ICMP ping to 192.168.1.2 and an HTTPS request to 1.1.1.1); mitigations needed to stop the flood while preserving those agent checks and not quarantining/removing the compromised host.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert inline Snort IPS between FortiGate and switch",
+      "outcome": "failure",
+      "brief_description": "Removed the direct FortiGate->switch link, added an inline Snort device (snort-ids-1) between FortiGate and the Cisco switch to block the ICMP flood at the LAN egress. Snort is preconfigured and runs inline automatically.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      },
+      "commands": [
+        {
+          "operation": "delete_link",
+          "link_id": "18ec72ae-8e8e-4cc5-a11c-42683da4b97f"
+        },
+        {
+          "operation": "add_device",
+          "device_type": "snort",
+          "device_name": "snort-ids-1"
+        },
+        {
+          "operation": "link_devices",
+          "device1_identifier": "FortiGate7.0.14-1",
+          "device2_identifier": "snort-ids-1"
+        },
+        {
+          "operation": "link_devices",
+          "device1_identifier": "snort-ids-1",
+          "device2_identifier": "cisco-switch"
+        }
+      ]
+    },
+    {
+      "number": 2,
+      "name": "Disable attack binary (chmod -x /usr/sbin/hping3)",
+      "outcome": "success",
+      "brief_description": "On UbuntuComputer removed execute permission for /usr/sbin/hping3. Verified no running hping3 process, LAN ping and HTTP checks succeeded and the ICMP flood stopped.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "Harden binary + file-integrity monitor + FortiGate deny policies",
+      "outcome": "failure",
+      "brief_description": "Set immutable bit on /usr/sbin/hping3, recorded sha256 baseline, installed a cron-driven checker to log tamper events and attempted to add FortiGate firewall address/ping-deny policies for the compromised host. Host hardening and monitoring were applied, but FortiGate policy ordering and syntax issues left network enforcement uncertain and the immutable defense is weak vs root-level attacker.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 4,
+      "name": "Proposed FortiGate per-source ICMP rate-limiting (policer/shaper)",
+      "outcome": "failure",
+      "brief_description": "Recommended creating a narrow FortiGate policy matching src=192.168.1.3 with an attached per-source ICMP policer (e.g., 5\u201320 pps) placed above broad LAN->WAN allow rules to throttle the flood while preserving legitimate ICMP and the agent's HTTP check. This suggestion was not implemented in-session.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 5,
+      "name": "Attempt FortiGate DoS-policy for ICMP",
+      "outcome": "failure",
+      "brief_description": "Attempted to create a FortiGate DoS policy to limit ICMP rate (set icmp-rate), but command failed due to missing/misnamed address objects and DoS-policy CLI syntax errors; no working DoS-policy was established.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 6,
+      "name": "Host-level iptables OUTPUT drop to the ICMP target",
+      "outcome": "failure",
+      "brief_description": "Inserted an iptables OUTPUT rule on UbuntuComputer to DROP ICMP destined to 7.0.14.254. This immediately stopped the flood and preserved ping/HTTP checks, but it violated the simulation constraint forbidding host-level ICMP blocking on the compromised host (Caldera agent depends on ICMP) and is brittle because the attacker runs as root.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    }
+  ],
+  "key_observations": [
+    "Attack vector: a single host used hping3 to generate high-rate ICMP (T1498.001). Disabling that specific tool (chmod -x) immediately stopped the observed flood.",
+    "Caldera agent validations (LAN ICMP + Internet HTTPS) are a hard constraint \u2014 many network/host mitigations must preserve small ICMP/HTTP flows for the agent to be considered non-disruptive.",
+    "Network-layer defenses require correct placement and ordering: inline IPS (Snort) can block volumetric attacks but may also disrupt legitimate flows if rules are not tuned; FortiGate policies must be ordered correctly so narrow deny/policer rules evaluate before broad allow rules.",
+    "Host-level hardening (chattr, checksum+monitor) increases durability for the disabled binary but is not tamper-proof against a root-capable attacker; it should be paired with network controls and monitoring/alerting.",
+    "Several mitigation attempts succeeded in stopping the flood temporarily, but some either violated scenario constraints (host-level ICMP drop) or were not validated/configured correctly (FortiGate DoS-policy and policy ordering issues)."
+  ],
+  "overall_conclusion": "The session explored multiple layered mitigations and demonstrated that stopping this ICMP flood is straightforward via either network policing/IPS or by disabling the attack binary. The most operationally acceptable, transferable approach is defense-in-depth: (1) apply a narrow network policer or correctly-ordered FortiGate DoS/policer policy that throttles ICMP per-source (preserving occasional legitimate ICMP and HTTP checks), (2) tune/monitor an inline IPS (Snort) placed after the firewall to block clear attack signatures without blocking benign probes, and (3) on-host disable the observed attack binary and add tamper-evident monitoring (sha256 baseline, chattr + monitoring) as a short-term containment. Host-only remedies (iptables drops) are effective but violate the live-response constraint and are brittle versus a root attacker \u2014 they should not be used in production. Final recommendation: implement a correctly ordered FortiGate per-source ICMP policer + tuned inline IPS + host integrity monitoring, enable logging/alerting, and conduct forensic follow-up and credential/persistence remediation."
+}

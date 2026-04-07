@@ -1,0 +1,181 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Deploy a Snort inline IPS on the LAN side (place it between the firewall and internal hosts) to automatically detect and block ICMP flood patterns and other malicious network traffic.",
+      "tool_calls": [
+        {
+          "operation": "delete_link",
+          "args": {
+            "link_id": "2e765c33-48e9-48fb-90bb-eeb851d4afd1"
+          },
+          "link_endpoint_devices": [
+            "FortiGate7.0.14-1",
+            "cisco-switch"
+          ]
+        },
+        {
+          "operation": "add_device",
+          "args": {
+            "device_type": "snort",
+            "device_name": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "FortiGate7.0.14-1",
+            "device2_identifier": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "snort-ids-1",
+            "device2_identifier": "cisco-switch"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 5,
+      "mitigation_name": "Implement a strict outbound protocol whitelist on the FortiGate firewall to block raw ICMP from general hosts while permitting only required application protocols (HTTP/S, DNS, management) so splunkd HTTP checks continue to function",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show system interface"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall service custom\nedit \"TCP-8443\"\n    set tcp-portrange 8443\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall service custom\nedit \"Allow-HTTP-HTTPS-DNS\"\n    set tcp-portrange 80-443\n    set udp-portrange 53\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 2\n    set name \"LAN-to-WAN-Whitelist\"\n    set srcintf \"port2\"\n    set dstintf \"port1\"\n    set action accept\n    set srcaddr \"all\"\n    set dstaddr \"all\"\n    set schedule \"always\"\n    set service \"Allow-HTTP-HTTPS-DNS\"\n    set nat enable\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 3\n    set name \"LAN-to-WAN-Deny-Other\"\n    set srcintf \"port2\"\n    set dstintf \"port1\"\n    set action deny\n    set srcaddr \"all\"\n    set dstaddr \"all\"\n    set schedule \"always\"\n    set service \"ALL\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy | grep -n \"LAN-to-WAN\" -n"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ip a"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\n    set service \"Allow-HTTP-HTTPS-DNS\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "curl -k -s -I https://203.0.113.1:8443 -m 5 -w \"%{http_code}\\n\" -o /dev/null || echo FAIL"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ping -c 3 7.0.14.254 -W 2 || echo PING_FAIL"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 2\n    set service \"Allow-HTTP-HTTPS-DNS\" \"TCP-8443\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "hping3 --icmp -i u10000 -c 100 7.0.14.254"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ip route get 7.0.14.254"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "output=$(hping3 --icmp -i u100000 -c 100 7.0.14.254 2>&1); echo \"$output\""
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "output=$(hping3 --icmp -i u100000 -c 100 7.0.14.254 2>&1); echo \"$output\""
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "hping3 --icmp -i u100000 -c 100 7.0.14.254"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "hping3 --icmp -i u10000 -c 20 7.0.14.254"
+          }
+        }
+      ]
+    }
+  ]
+}

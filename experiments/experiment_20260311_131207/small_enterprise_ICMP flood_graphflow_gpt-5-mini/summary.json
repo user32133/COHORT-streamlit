@@ -1,0 +1,78 @@
+{
+  "attack_summary": "An active ICMP flood (direct network flood) was launched from a compromised Ubuntu host (192.168.1.3) using hping3/raw ICMP to flood a WAN target (7.0.14.254). The attacker\u2019s agent runs as root and remains live on the host (digital-twin constraint).",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert preconfigured Snort IPS inline (LAN-side)",
+      "outcome": "success",
+      "brief_description": "Removed the direct FortiGate<->switch link and inserted a preconfigured Snort device between FortiGate and the Cisco switch (FortiGate -> snort-ids-1 -> cisco-switch). Snort ran inline with built-in rules and automatically detected/blocked ICMP flood patterns, immediately stopping the flood at the LAN edge without isolating the host.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 2,
+      "name": "Host-level application confinement workaround (disable hping3)",
+      "outcome": "failure",
+      "brief_description": "Attempted to use LSM/AppArmor/SELinux but could not install/enable them in the environment. As an immediate step, the hping3 binary was moved from /usr/sbin/hping3 to /usr/sbin/hping3.disabled to prevent invocation of the observed tool. This reduced ease-of-use for the attacker but, because the attacker has root, it did not reliably stop raw-socket ICMP generation and therefore did not fully mitigate the ongoing attack by itself.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "FortiGate edge controls (address object + top policy deny / ICMP policing)",
+      "outcome": "success",
+      "brief_description": "Created an address object for the compromised host (192.168.1.3/32) and implemented a top-of-list firewall policy to deny ICMP (and in iterations, broaden service or adjust) from that host to the WAN; ensured the deny rule evaluated above the broad LAN->WAN allow and enabled logging. This network-enforced control stopped outbound ICMP flooding at the firewall and protected upstream links while keeping the host active for live IR. Iterative corrections were applied to confirm policy ordering and action.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    }
+  ],
+  "key_observations": [
+    "Network-enforced controls (inline IPS and firewall policies) are effective for stopping an active flood while the attacker remains on the host; host-only fixes are brittle when the attacker has root.",
+    "Policy evaluation order and explicit action settings on the FortiGate are critical \u2014 a deny placed below a broad allow will not take effect.",
+    "Preconfigured Snort inline (LAN-side, after the firewall) rapidly detected and blocked the observed ICMP flood patterns with minimal configuration required.",
+    "Host-level confinement attempts (AppArmor/SELinux) may be infeasible in constrained environments; quick host workarounds (moving binaries) only provide temporary reduction of risk.",
+    "Defense-in-depth is necessary: combine inline IPS, firewall DoS/ICMP rate-limiting, and first-hop (switch) ingress policing to avoid single-point failure or IPS overwhelm under very high-volume floods.",
+    "Visibility and validation (Snort logs, FortiGate logs/sessions/DoS counters, controlled hping3 tests) are essential to confirm mitigation effectiveness and detect evasions."
+  ],
+  "overall_conclusion": "The active ICMP flood was stopped by layered, network-enforced mitigations: inserting the preconfigured Snort IPS inline and applying a correctly ordered FortiGate deny/policing rule for the compromised host. Host-only measures (disabling hping3) were insufficient on their own because the attacker had root. Recommended next steps for production: implement FortiGate per-source/global DoS thresholds and control-plane protection, apply access-switch ingress policing (pps) on the host port, deploy persistent host confinement (AppArmor/SELinux, file capabilities, eBPF filters) where feasible, and enable correlated telemetry/alerts to detect evasion attempts and validate ongoing protection."
+}

@@ -1,0 +1,65 @@
+{
+  "attack_summary": "An active ICMP flood was being launched from a compromised internal Ubuntu host (192.168.1.3) using hping3 (raw ICMP packets) to flood a target (7.0.14.254). The agent had elevated/root privileges and maintained command-and-control contact to 203.0.113.1.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert inline Snort IPS between FortiGate and internal switch",
+      "outcome": "success",
+      "brief_description": "Removed the direct FortiGate <-> switch link and inserted a pre-configured Snort device inline (FortiGate -> snort-ids-1 -> cisco-switch). Snort ran in inline IPS mode and immediately inspected and blocked the ICMP flood traffic.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 2,
+      "name": "Host-level immediate hardening (disable hping3 + iptables OUTPUT DROP)",
+      "outcome": "partial_failure",
+      "brief_description": "On the compromised Ubuntu host: changed /usr/sbin/hping3 to non-executable (chmod 000) and added an iptables OUTPUT rule to DROP outbound ICMP. This immediately prevented hping3-based floods but is reversible by a root attacker, and it broke legitimate host ICMP diagnostics (LAN ping failed).",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "Layered live-response: network-level Snort + host controls",
+      "outcome": "success",
+      "brief_description": "Combined the host-level controls (chmod + iptables DROP) with the network-level Snort IPS inserted inline. This layered approach stopped the active ICMP flood while keeping the compromised host on the network and provided resilient, host-independent blocking that an on-host root attacker cannot directly disable."
+    }
+  ],
+  "key_observations": [
+    "Attack vector: local elevated agent used hping3 to send raw ICMP floods\u2014attacker had root-level capability on the host making host-only controls reversible.",
+    "Pre-configured Snort IPS inserted inline (LAN-side, after firewall) reliably detected/blocked the ICMP flood and provided robust, host-independent mitigation.",
+    "Host-only mitigations (chmod, non-persistent iptables rules) stop current tools quickly but are reversible by a privileged adversary and can disrupt legitimate diagnostic traffic.",
+    "Collateral impacts were observed: outbound HTTP and intra-LAN ICMP diagnostics were impacted after mitigation and require tuning or targeted rules to avoid over-blocking.",
+    "Defense-in-depth is necessary: combine network IPS and firewall policies (rate-limits/ACLs) with host hardening (LSM/seccomp, capability reduction, persistent controls) and monitoring for attacker adaptation."
+  ],
+  "overall_conclusion": "The ongoing ICMP flood was successfully stopped by introducing a pre-configured inline Snort IPS and applying immediate host-level controls. The most effective and resilient control was the network-side Snort insertion; host-level fixes provided quick containment but are not durable against a root adversary and caused some legitimate connectivity loss. Recommend follow-up: add FortiGate egress ICMP rate-limiting or targeted ACLs, make host hardening persistent via LSMs/capability policies, enable logging/monitoring (Snort/firewall counters and packet captures), and prepare automated playbooks to preserve legitimate services while containing malicious behavior."
+}

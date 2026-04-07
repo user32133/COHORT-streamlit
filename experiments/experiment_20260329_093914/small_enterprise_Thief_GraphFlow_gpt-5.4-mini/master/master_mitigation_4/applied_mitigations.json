@@ -1,0 +1,59 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 3,
+      "mitigation_name": "Remove execute permission from the attacker-used file discovery and archival utilities for the unprivileged agent user, especially the binaries used to locate files and create tar archives",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id agent"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "find /usr/bin /bin /usr/local/bin -type f \\( -name find -o -name tar -o -name curl -o -name wget \\) -exec ls -l {} \\;"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod o-x /usr/bin/find /usr/bin/tar"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ls -l /usr/bin/find /usr/bin/tar && runuser -u agent -- sh -c 'find /usr/share/pixmaps -name \"*.png\" -type f -size -500k 2>/dev/null | head -1; tar -czf /tmp/test.tar.gz /usr/share/pixmaps/ubuntu-logo-text.png >/dev/null 2>&1; echo TAR_EXIT:$?'"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 4,
+      "mitigation_name": "Tighten filesystem permissions on the attacker-created staging directory under /usr/src/app so the unprivileged agent user cannot create, modify, or archive staged data there",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id && ls -ld /usr/src/app /usr/src/app/staged 2>/dev/null || true && stat -c '%U:%G %a %n' /usr/src/app /usr/src/app/staged 2>/dev/null || true && chmod 700 /usr/src/app/staged 2>/dev/null || true && chown root:root /usr/src/app/staged 2>/dev/null || true && chmod 700 /usr/src/app/staged.tar.gz 2>/dev/null || true && chown root:root /usr/src/app/staged.tar.gz 2>/dev/null || true && ls -ld /usr/src/app/staged 2>/dev/null || true && stat -c '%U:%G %a %n' /usr/src/app/staged 2>/dev/null || true"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "mkdir -p /usr/src/app/staged && chown root:root /usr/src/app/staged && chmod 700 /usr/src/app/staged && touch /usr/src/app/staged/.mitigation_test && echo ok; rm -f /usr/src/app/staged/.mitigation_test; stat -c '%U:%G %a %n' /usr/src/app/staged"
+          }
+        }
+      ]
+    }
+  ]
+}

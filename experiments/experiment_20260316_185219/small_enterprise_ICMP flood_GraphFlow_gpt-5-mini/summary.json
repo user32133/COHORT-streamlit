@@ -1,0 +1,158 @@
+{
+  "attack_summary": "A compromised Ubuntu host (192.168.1.3) with an active agent (splunkd) was used to generate a high-rate ICMP echo flood (hping3) targeting external IP 7.0.14.254 and otherwise exercising network discovery. The attacker remained live in the digital twin; mitigations had to stop the flood while keeping the host on-network.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Deploy Snort inline IPS on LAN side",
+      "outcome": "success",
+      "brief_description": "Inserted a preconfigured Snort inline IPS between the FortiGate and the internal switch (FortiGate -> Snort -> switch). Snort (inline IPS) provided immediate packet-level detection and automatic blocking of malicious ICMP flood patterns and improved visibility.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 2,
+      "name": "FortiGate anti-DoS + per-host firewall + host iptables rate-limit",
+      "outcome": "success",
+      "brief_description": "Created a FortiGate address object for 192.168.1.3, added a targeted firewall deny for ICMP from that host to WAN, configured a FortiGate DoS-policy with ICMP thresholds, disabled/removed hping3 execution, and applied host iptables OUTPUT rate-limit rules to cap outbound ICMP. Iterated until DoS thresholds and policy-order were verified.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "Host-based egress filtering and application restriction",
+      "outcome": "success",
+      "brief_description": "On UbuntuComputer: attempted nft rules (failed), then applied iptables rules (OUTPUT chain) to rate-limit ICMP (allow ~10/sec, burst 20) and added DROP rules; killed/disabled hping3 and collected forensic artifacts. This reduced local attack capability while preserving the host.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 4,
+      "name": "Per-port/per-host ingress ACL on Cisco switch (drop ICMP Echo)",
+      "outcome": "success",
+      "brief_description": "Created extended ACL on the access switch applied inbound to the host port (Gi0/1) denying ICMP echo from 192.168.1.3. This prevented the host from sending ICMP echo-requests out of the access port. Note: mitigation caused collateral loss of LAN ping reachability (blocked legitimate ICMP echo).",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 5,
+      "name": "Control Plane Policing (CoPP) then ingress policing on switch",
+      "outcome": "failure",
+      "brief_description": "Attempted CoPP to protect switch CPU (not effective against transit floods) \u2014 initial CoPP caused platform instability and was removed. Replaced with a targeted ingress policy-map on the host access interface to police ICMP (police CIR 8000 bps). Showed policy applied but counters were zero during testing and the attempt did not demonstrably reduce attack success in that iteration.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 6,
+      "name": "Enable ingress anti-spoofing (uRPF) on FortiGate and switches",
+      "outcome": "failure",
+      "brief_description": "Attempted uRPF on IOSv-L2 (unsupported). FortiGate had no explicit per-interface uRPF CLI shown; implemented compensating controls instead (RFC1918 WAN->LAN deny on FortiGate, ICMP deny policy, host iptables). Because explicit uRPF/source verification was not enabled on the intended devices, the chosen mitigation was not realized as requested.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 7,
+      "name": "Application confinement & capability hardening on host (LSM/capability removal)",
+      "outcome": "failure",
+      "brief_description": "Disabled hping3 (chmod 000), added iptables drops, collected forensic artifacts, and attempted to restart the agent (splunkd) under reduced capabilities via setpriv/capsh. The attempted capability removal was not verifiably completed (no persistent CapEff-after artifact / splunkd restart evidence). Full LSM/seccomp/AppArmor enforcement was not deployed.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 8,
+      "name": "Automated flow-based detection + dynamic firewall mitigation (building blocks)",
+      "outcome": "failure (partial)",
+      "brief_description": "Implemented building blocks: FortiGate address object and top-of-policy ICMP deny for the host, inline Snort added, and attempted NetFlow configuration and host hashlimit throttling. Several NetFlow/service/nft CLI attempts failed or returned parse errors; flow export/status and the automated playbook to dynamically insert/expire per-host policies were not completed.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    }
+  ],
+  "key_observations": [
+    "Layered defense was used: network (FortiGate policies, switch ACLs/ingress policing), inline IPS (Snort), and host controls (iptables, disabling tools).",
+    "Snort inline insertion was highly effective as a real-time blocking layer and was simple to deploy in this environment.",
+    "Host-based controls (iptables, chmod) provided immediate containment but are reversible by an attacker with root privileges \u2014 not persistence-resistant without LSM/AppArmor/seccomp.",
+    "Platform and CLI limitations (FortiOS syntax variations, IOSv-L2 lacking uRPF, nft syntax differences) caused repeated command failures and required fallbacks; these device constraints shaped which mitigations were feasible.",
+    "Several mitigations caused collateral impact: per-port ACLs blocked legitimate LAN ICMP diagnostics and some changes temporarily disrupted outbound HTTP from the agent; careful scoping and testing are required to avoid service disruption.",
+    "Automation (flow export -> dynamic mitigation) was not completed: NetFlow export and an automated playbook to create/expire dynamic rules were only partially implemented, leaving the solution operationally manual in parts."
+  ],
+  "overall_conclusion": "The active ICMP flood was ultimately stopped in the digital twin by combining an inline IPS (Snort), targeted FortiGate policies/DoS thresholds, and host egress throttling and tool removal \u2014 all while keeping the compromised host on the network, satisfying the live-response constraint. However, several chosen mitigations could not be implemented exactly as proposed due to platform limitations and CLI syntax issues (notably uRPF support on the switch and full NetFlow/automation). Host-side fixes remain reversible unless hardened with enforced LSM/seccomp and capability removal, and some actions produced collateral impact to legitimate traffic. Recommended next steps for production transferability: finalize NetFlow export + build automation playbook for per-host thresholding, deploy persistent LSM/seccomp or centralized EDR enforcement on hosts, tune rules to avoid collateral disruption, and maintain Snort/IPS + FortiGate per-source rate limits as primary enforcement layers."
+}

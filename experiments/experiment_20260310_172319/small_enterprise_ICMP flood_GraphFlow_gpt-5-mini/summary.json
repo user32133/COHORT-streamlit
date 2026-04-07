@@ -1,0 +1,20 @@
+{
+  "attack_summary": "A compromised Ubuntu host (UbuntuComputer, 192.168.1.3) was running hping3 to generate an outbound ICMP flood (T1498.001) as part of an active operation. The attacker (Caldera server 203.0.113.1) is still present; removal/quarantine of the host was not allowed.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Insert Snort inline IPS between FortiGate and internal switch",
+      "outcome": "success",
+      "brief_description": "Added a preconfigured Snort inline IPS (snort-ids-1) on the LAN path (FortiGate -> Snort -> Cisco switch) to inspect and drop malicious ICMP flood packets from 192.168.1.3 without removing or quarantining the compromised host. The insertion reduced the attack success rate to 0.0 (attack stopped). However, post-deployment validity checks showed loss of legitimate LAN/Internet reachability, so connectivity tuning is required."
+    }
+  ],
+  "key_observations": [
+    "The active capability was an outbound ICMP flood (hping3) from the compromised host (T1498.001).",
+    "Snort placed inline on the LAN-side successfully blocked the malicious ICMP traffic and stopped the flood (baseline success rate 1.0 -> 0.0).",
+    "After insertion, both LAN ping and HTTPS validity checks failed \u2014 legitimate connectivity was disrupted.",
+    "Implementation respected scenario constraints (attacker still present; host not removed; Snort placed after firewall on LAN-side; no commands sent to Snort).",
+    "Probable causes for connectivity loss include overly aggressive Snort blocking policy or HOME_NET, asymmetric routing bypass/mis-pathing, or an interface/VLAN/link mismatch introduced during topology change.",
+    "No Snort alerts, packet-drops logs, or packet captures were provided; follow-up verification (Snort logs, packet capture, firewall/switch counters) is required before rolling to production."
+  ],
+  "overall_conclusion": "Inserting a preconfigured Snort inline IPS was effective at stopping the ongoing ICMP flood while keeping the attacker present (meets the live-response constraint). However, the change produced unintended loss of legitimate LAN/Internet connectivity. Next steps: immediately review Snort drop logs and HOME_NET/policy, confirm inline/drop mode and that all traffic is traversing the sensor (no asymmetric paths), tune rules/allowlists to permit legitimate protocols, and add complementary controls (FortiGate egress ICMP/rate limits, switch port policing, host egress restrictions and monitoring) to harden the environment without disrupting availability."
+}

@@ -1,0 +1,129 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Uninstall or disable the hping3 attack tool on the compromised Ubuntu host (remove binary or make non-executable) to eliminate the local ICMP flood capability",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "HPPATH=$(command -v hping3 || true); if [ -n \"$HPPATH\" ]; then pgrep -a hping3 >/dev/null 2>&1 && pkill -f hping3 || true; mv \"$HPPATH\" \"$HPPATH.disabled\" 2>/dev/null || chmod 000 \"$HPPATH\"; echo \"disabled:$HPPATH\"; else echo \"hping3_not_found\"; fi; command -v hping3 || true; ping -c 3 -W 2 192.168.1.2; curl -ksS -o /dev/null -w \"HTTP_STATUS:%{http_code}\\nREMOTE_IP:%{remote_ip}\\nTIME_TOTAL:%{time_total}s\\n\" --max-time 10 https://1.1.1.1"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 3,
+      "mitigation_name": "Implement QoS/traffic-shaping on the FortiGate and the access switch to prioritize agent management and legitimate HTTP traffic while deprioritizing and shaping ICMP (token-bucket policing + low-priority queue for ICMP) so floods cannot saturate uplinks or device buffers while normal pings/HTTP remain functional",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"UbuntuHost\"\nset subnet 203.0.113.2 255.255.255.255\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\ndedit \"ICMPTarget\"\nset subnet 7.0.14.254 255.255.255.255\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"ICMPTarget\"\nset subnet 7.0.14.254 255.255.255.255\nnext\nend\n\nconfig firewall shaper traffic-shaper\nedit \"ICMP_limit\"\nset guaranteed-bandwidth 64\nset maximum-bandwidth 128\nset priority low\nnext\nend\n\nconfig firewall policy\nedit 0\nset name \"limit_icmp_out\"\nset srcintf \"Port2\"\nset dstintf \"caldera-br\"\nset srcaddr \"UbuntuHost\"\nset dstaddr \"ICMPTarget\"\nset action accept\nset schedule \"always\"\nset service \"ICMP\"\nset traffic-shaper \"ICMP_limit\"\nset nat enable\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall service custom\nedit \"svc-ICMP\"\nset protocol ICMP\nnext\nend\n\nconfig firewall policy\nedit 0\nset name \"limit_icmp_out\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuHost\"\nset dstaddr \"ICMPTarget\"\nset action accept\nset schedule \"always\"\nset service \"svc-ICMP\"\nset traffic-shaper \"ICMP_limit\"\nset nat disable\nnext\nend\n\nshow firewall policy 0"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show system interface"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"UbuntuHost_LAN\"\nset subnet 192.168.1.3 255.255.255.255\nnext\nend\n\nconfig firewall addrgrp\nedit \"UbuntuGroup\"\nset member \"UbuntuHost\" \"UbuntuHost_LAN\"\nnext\nend\n\nconfig firewall policy\nedit 2\nset srcaddr \"UbuntuGroup\"\nnext\nend\n\nshow firewall policy 2\nshow firewall addrgrp \"UbuntuGroup\""
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "cisco-switch",
+            "command": "configure terminal\nip access-list extended ICMP_FROM_UBU\n permit icmp host 192.168.1.3 any\nexit\nclass-map match-any ICMP_CLASS\n match access-group name ICMP_FROM_UBU\nexit\npolicy-map ICMP_POLICE\n class ICMP_CLASS\n  police 1000000 10000 10000 conform-action transmit exceed-action drop\n exit\nexit\ninterface GigabitEthernet0/1\n service-policy input ICMP_POLICE\nend\nshow policy-map interface GigabitEthernet0/1 input\nshow access-lists ICMP_FROM_UBU"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "cisco-switch",
+            "command": "enable\nconfigure terminal\nip access-list extended ICMP_FROM_UBU\n permit icmp host 192.168.1.3 any\n exit\nclass-map match-any ICMP_CLASS\n match access-group name ICMP_FROM_UBU\n exit\npolicy-map ICMP_POLICE\n class ICMP_CLASS\n  police 1000000 8000 8000 conform-action transmit exceed-action drop\n exit\n exit\ninterface GigabitEthernet0/1\n service-policy input ICMP_POLICE\nend\nshow policy-map interface GigabitEthernet0/1 input\nshow access-lists ICMP_FROM_UBU"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nmove 2 1\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall service group\nedit \"MgmtServices\"\nset member \"HTTP\" \"HTTPS\" \"DNS\" \"SSH\"\nnext\nend\n\nconfig firewall policy\nedit 1\nset service \"MgmtServices\"\nnext\nend\n\nshow firewall policy"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "diagnose firewall policy list"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy 2"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ping -c 3 -W 2 192.168.1.2"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "curl -ksS -o /dev/null -w \"HTTP_STATUS:%{http_code}\\nREMOTE_IP:%{remote_ip}\\nTIME_TOTAL:%{time_total}s\\n\" --max-time 10 https://1.1.1.1"
+          }
+        }
+      ]
+    }
+  ]
+}

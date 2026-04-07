@@ -1,0 +1,188 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Deploy the pre-configured Snort inline between the FortiGate firewall and the internal switch (place Snort on the LAN side, immediately after the firewall) so the IPS can detect and block high-rate ICMP flood patterns while allowing normal management pings.",
+      "tool_calls": [
+        {
+          "operation": "delete_link",
+          "args": {
+            "link_id": "743f2a6a-4be5-4d6d-83a5-7cf2ffedc0bf"
+          },
+          "link_endpoint_devices": [
+            "FortiGate7.0.14-1",
+            "cisco-switch"
+          ]
+        },
+        {
+          "operation": "add_device",
+          "args": {
+            "device_type": "snort",
+            "device_name": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "FortiGate7.0.14-1",
+            "device2_identifier": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "snort-ids-1",
+            "device2_identifier": "cisco-switch"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 2,
+      "mitigation_name": "Create a FortiGate outbound policy that blocks/drops ICMP to non-LAN/WAN destinations while allowing LAN ICMP and required HTTP(S) traffic",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"UbuntuComputer\"\nset subnet 192.168.1.3 255.255.255.255\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"LAN_NET\"\nset subnet 192.168.1.0 255.255.255.0\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Block_ICMP_Egress\"\nset srcintf \"Port2\"\nset dstintf \"caldera-br\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"all\"\nset action deny\nset service \"PING\"\nset schedule \"always\"\nset comments \"Block ICMP egress from UbuntuComputer to outside, allow LAN pings via separate policy\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show system interface"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Allow_HTTP_Src_Ubuntu\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"all\"\nset action accept\nset service \"HTTP\" \"HTTPS\"\nset schedule \"always\"\nset nat enable\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Block_ICMP_Egress\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"all\"\nset action deny\nset service \"PING\"\nset schedule \"always\"\nset comments \"Block ICMP egress from UbuntuComputer to outside, allow LAN pings via separate policy\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall service custom\nedit \"ICMP_ECHO\"\nset protocol ICMP\nset icmp-type 8\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Allow_LAN_ICMP\"\nset srcintf \"port2\"\nset dstintf \"port2\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"LAN_NET\"\nset action accept\nset service \"PING\"\nset schedule \"always\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nmove 3 1\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\nset name \"Block_ICMP_Egress\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"all\"\nset action deny\nset service \"PING\"\nset schedule \"always\"\nset comments \"Block ICMP egress from UbuntuComputer to outside\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy 1\nshow firewall policy 2\nshow firewall policy 3\nshow firewall policy 4"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\ndelete 1\ndelete 2\ndelete 3\ndelete 4\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Block_ICMP_Egress\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"all\"\nset action deny\nset service \"PING\"\nset schedule \"always\"\nset logtraffic enable\nset comments \"Top-priority deny: block ICMP egress from UbuntuComputer to WAN\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Allow_HTTP_Src_Ubuntu\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"all\"\nset action accept\nset service \"HTTP\" \"HTTPS\"\nset schedule \"always\"\nset nat enable\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 0\nset name \"Allow_LAN_ICMP\"\nset srcintf \"port2\"\nset dstintf \"port2\"\nset srcaddr \"UbuntuComputer\"\nset dstaddr \"LAN_NET\"\nset action accept\nset service \"PING\"\nset schedule \"always\"\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\nset action deny\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall policy\nedit 1\nset logtraffic all\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "show firewall policy 1\nshow firewall policy 2\nshow firewall policy 3"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,75 @@
+{
+  "total_applied": 3,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Deploy inline Snort IPS between FortiGate and internal switch to block ICMP flood",
+      "tool_calls": [
+        {
+          "operation": "delete_link",
+          "args": {
+            "link_id": "454974fb-4ed2-4a1d-901e-2031bb54937d"
+          },
+          "link_endpoint_devices": [
+            "FortiGate7.0.14-1",
+            "cisco-switch"
+          ]
+        },
+        {
+          "operation": "add_device",
+          "args": {
+            "device_type": "snort",
+            "device_name": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "FortiGate7.0.14-1",
+            "device2_identifier": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "snort-ids-1",
+            "device2_identifier": "cisco-switch"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 2,
+      "mitigation_name": "Create FortiGate egress/filter rules to block ICMP from the compromised agent while allowing HTTP/HTTPS (egress filtering on the firewall)",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall address\nedit \"agent_192.168.1.3\"\nset subnet 192.168.1.3 255.255.255.255\nnext\nend\nconfig firewall policy\nedit 1\nset name \"Deny_ICMP_from_agent\"\nset srcintf \"any\"\nset dstintf \"any\"\nset srcaddr \"agent_192.168.1.3\"\nset dstaddr \"all\"\nset action deny\nset schedule \"always\"\nset service \"PING\"\nset logtraffic all\nnext\nedit 2\nset name \"Allow_HTTPs_from_agent\"\nset srcintf \"any\"\nset dstintf \"any\"\nset srcaddr \"agent_192.168.1.3\"\nset dstaddr \"all\"\nset action accept\nset service \"HTTPS\" \"HTTP\"\nset nat enable\nset schedule \"always\"\nset logtraffic all\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "curl -ksS -o /dev/null -w \"HTTP_STATUS:%{http_code}\\nREMOTE_IP:%{remote_ip}\\nTIME_TOTAL:%{time_total}s\\n\" --max-time 10 https://1.1.1.1"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 3,
+      "mitigation_name": "Apply host-based ICMP rate-limiting and drop rules on the compromised Ubuntu agent using iptables (throttle allowed ICMP, drop the rest)",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "iptables -I OUTPUT 1 -p icmp -m limit --limit 1/s --limit-burst 5 -j ACCEPT; iptables -A OUTPUT -p icmp -j DROP; iptables -L OUTPUT -n --line-numbers"
+          }
+        }
+      ]
+    }
+  ]
+}

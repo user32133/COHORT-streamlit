@@ -1,0 +1,146 @@
+{
+  "attack_summary": "An active ICMP flood (hping3 --icmp) was launched from a compromised Ubuntu host (192.168.1.3) under attacker control (Caldera agent rnxwtm). The flood targeted a WAN address (7.0.14.254) to produce a network-denial impact (T1498.001) while the attacker remained live inside the network.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "FortiGate firewall: explicit ICMP deny policies (LAN->WAN)",
+      "outcome": "success",
+      "brief_description": "Created address objects and firewall policies to deny/log ICMP (PING) from the LAN subnet and/or specific host(s) to the WAN interface, immediately stopping ICMP egress toward the target.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 2,
+      "name": "FortiGate DoS/Anomaly policy (ICMP rate thresholds)",
+      "outcome": "failure (partial)",
+      "brief_description": "Attempted to configure DoS/anomaly settings and per-anomaly thresholds on FortiGate. CLI parse errors prevented setting explicit blocking/action/logging in some commands; a DoS-policy entry with ICMP thresholds appeared but action and logging were not fully or verifiably applied.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 3,
+      "name": "Insert Snort inline IPS between FortiGate and switch",
+      "outcome": "success",
+      "brief_description": "Removed the FortiGate<->switch link and added a preconfigured Snort device inline (FortiGate -> Snort -> switch). Snort (preconfigured IPS in inline mode) was used to detect and block flood-like ICMP patterns automatically.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 4,
+      "name": "Per-port QoS policing / storm-control on Cisco access switch",
+      "outcome": "failure",
+      "brief_description": "Attempted policy-map/service-policy and storm-control configuration on the vIOS switch to limit pps/bandwidth per port/MAC. The IOSv-L2 image rejected many QoS/storm-control commands; the intended policing did not take effect.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        },
+        "master": {
+          "LAN Connectivity Check (Ping)": {
+            "success": false,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": false,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 5,
+      "name": "Host-level ICMP rate limiting (nftables/iptables on Ubuntu host)",
+      "outcome": "success",
+      "brief_description": "Added nftables/iptables rules on the compromised Ubuntu host to limit outgoing ICMP echo-requests (token-bucket style, e.g., ~10/sec with a burst), reducing the host's ability to generate high-rate floods while keeping it on-network.",
+      "validity_checks": {
+        "single": {
+          "LAN Connectivity Check (Ping)": {
+            "success": true,
+            "description": "Checks inter-network connectivity by pinging a target host on the LAN. The target IP is defined by the fact 'lan.target.ip'."
+          },
+          "Internet Connectivity Check (HTTP)": {
+            "success": true,
+            "description": "Deadman ability that verifies internet connectivity by making an HTTP HEAD request to a well-known public endpoint. Uses curl instead of ping (ICMP) to test TCP-based network reachability. Returns the HTTP status code."
+          }
+        }
+      }
+    },
+    {
+      "number": 6,
+      "name": "FortiGate per-host deny (deny-icmp-from-ubuntu)",
+      "outcome": "success",
+      "brief_description": "Created a 192.168.1.3/32 address object and a top-priority firewall policy explicitly denying ICMP from that host to the WAN. Policy ordering made this an effective containment control for the active flood."
+    },
+    {
+      "number": 7,
+      "name": "Control-plane protection (CoPP) on Cisco switch",
+      "outcome": "success",
+      "brief_description": "Configured ACL, class-map and policy-map and applied it to the switch control-plane (service-policy input) to rate-limit ICMP directed to the device CPU, protecting device management during flood conditions."
+    }
+  ],
+  "key_observations": [
+    "Layered compensating controls were used: when a primary native feature failed (FortiGate DoS-policy or switch QoS), the team deployed other network (Snort inline, firewall denies, CoPP) and host (nftables/iptables) measures to achieve containment.",
+    "Platform limitations affected implementation: FortiGate CLI parse errors prevented full DoS-policy configuration; the vIOS-L2 switch rejected QoS/storm-control/ip-verify commands in several attempts.",
+    "Snort inline insertion was straightforward, followed placement guidance (LAN side, after firewall) and proved an effective automated blocking mechanism for ICMP flood patterns.",
+    "Host-level rate limiting (nftables/iptables) was an effective, low-impact live-response control to throttle the compromised agent without removing it from the network.",
+    "There was one transient policy misstep (a MAC ACL that effectively quarantined the host) that violated the simulation constraint; critics caught and required its removal\u2014team corrected course and replaced it with non-quarantine controls.",
+    "Policy ordering and verification (policy hits, IDS logs, counters) were repeatedly requested; several mitigations lacked explicit hit/log validation in the session, so follow-up verification is recommended."
+  ],
+  "overall_conclusion": "The active ICMP flood was mitigated successfully without removing the compromised host by combining immediate containment (FortiGate ICMP deny, per-host deny), inline IPS (Snort) to drop malformed/high-rate patterns, endpoint rate-limiting (nftables/iptables), and switch control-plane protection (CoPP). Native FortiGate DoS and some switch QoS features could not be fully applied because of CLI/platform limitations, but compensating layered controls achieved the objective and reduced the attack success rate to zero. Recommended next steps in production: verify policy ordering and counters, enable/confirm FortiGate DoS/anomaly blocking where supported, tune thresholds to avoid false positives, remove any host-quarantine ACLs, and keep Snort/IDS logs for forensics."
+}

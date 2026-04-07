@@ -1,0 +1,20 @@
+{
+  "attack_summary": "An active ICMP flood (direct network denial-of-service) originated from a compromised Ubuntu host (UbuntuComputer, 192.168.1.3) running hping3 to send high-rate ICMP traffic (attack step ddos-icmp) toward an external address (203.0.113.1). The adversary also ran discovery checks (ping to 192.168.1.2 and an HTTP connectivity check to 1.1.1.1). The attacker remains present and the host must remain on the network (live-response constraint).",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "FortiGate egress ICMP deny (block outbound PING)",
+      "outcome": "failure",
+      "brief_description": "Created a FortiGate firewall policy (policy entry 0) that denies the service object 'PING' from srcintf=port2 (LAN) to dstintf=port1 (WAN), with logging enabled. CLI commands used: config firewall policy -> edit 0 -> set name \"block_outbound_icmp\" -> set srcintf \"port2\" -> set dstintf \"port1\" -> set srcaddr \"all\" -> set dstaddr \"all\" -> set action deny -> set service \"PING\" -> set schedule \"always\" -> set logtraffic all -> next -> end. The rule was accepted by the device but did not stop the active ICMP flood (validation shows attack success remained 1.0)."
+    }
+  ],
+  "key_observations": [
+    "The implemented FortiGate 'PING' deny was applied (policy index 0, logging on) but validation shows the ICMP flood remained effective (mitigation effectiveness = 0).",
+    "Possible reasons for failure: crafted/raw packets from hping3 may not match the FortiGate 'PING' service object (service object matching limits), the attacker could have switched to a protocol or packet form the rule didn't block, or the firewall's matching/ordering semantics did not intercept the specific traffic pattern; logs/pcaps were not provided to pinpoint the bypass.",
+    "The mitigation was broad (srcaddr = all) potentially impacting legitimate ICMP for all hosts; it also did respect the live-response constraint (host not removed/quarantined).",
+    "Preconfigured Snort inline IPS is available and would provide signature-based blocking if inserted on the LAN side (between firewall and switch) but it was not placed during the attempts.",
+    "Agent collaboration was efficient and produced actionable device-level commands, but the critic prematurely approved effectiveness; the judge's validation showed the change did not achieve the objective.",
+    "Validation artifacts contained ambiguous results (e.g., a 'PASSED' label with 100% ping loss), indicating gaps in test instrumentation or log interpretation."
+  ],
+  "overall_conclusion": "The single implemented mitigation (deny outbound ICMP via FortiGate) was correctly executed but failed to stop the active ICMP flood. The likely cause is a mismatch between the firewall service object and the attacker's crafted/raw packets or alternative protocols/packet formats used by the attacker. To achieve stopping the attack while keeping the compromised host on-network, iterative mitigations are required: apply per-source rate-limiting/DoS-anomaly protections on the FortiGate, narrow policy scope to the known compromised IP, insert the preconfigured Snort IPS inline on the LAN side for signature-based blocking, add switch-level port policing or ACLs where possible, and capture packet-level evidence to confirm which traffic bypassed the rule. These next steps would preserve live-response constraints and are recommended before concluding the incident resolved."
+}

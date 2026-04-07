@@ -1,0 +1,20 @@
+{
+  "attack_summary": "An active outbound ICMP flood was launched from a compromised Ubuntu host (192.168.1.3, agent 'iezytu' running as 'splunkd') using hping3 to flood an external C2/target (203.0.113.1). The operation leveraged elevated privileges on the host to perform a direct network denial-of-service (ICMP flood / T1498.001) while the attacker remained present.",
+  "mitigations": [
+    {
+      "number": 1,
+      "name": "Deploy Snort IPS inline between FortiGate and internal LAN",
+      "outcome": "success",
+      "brief_description": "Removed the existing FortiGate<->switch link, added a preconfigured Snort IDS device (snort-ids-1), and connected FortiGate -> snort-ids-1 -> cisco-switch to place the IPS inline (no config changes to Snort). This immediately blocked the ICMP flood traffic and reduced the attack success rate from 1.0 to 0.0 while keeping the compromised host on the network. However, legitimate connectivity tests (LAN ping and HTTP curl from the compromised host) also failed after the change, indicating collateral disruption (overblocking or path issues) that requires tuning."
+    }
+  ],
+  "key_observations": [
+    "Attack vector: outbound ICMP flood from a single compromised host using hping3 (direct network flood, impact T1498.001).",
+    "Single inline IPS deployment (Snort) directly prevented the volumetric ICMP traffic\u2014attack success rate dropped to 0.0.",
+    "Mitigation respected live-response constraint: compromised host remained on the network and attacker remained present.",
+    "Collateral effect: both LAN (ICMP) and Internet (HTTP) connectivity checks from the compromised host failed after placement, suggesting overblocking by the IPS, asymmetric routing, or interaction with firewall policies.",
+    "No Snort configuration was required or changed (device is preconfigured); lack of Snort logs in the record leaves exact blocking rules/behavior unobserved.",
+    "Recommended additional controls for a production environment: tune IPS signatures/thresholds, enable FortiGate DoS/anomaly and egress filtering (ICMP rate limits), and apply host-level rate-limiting/restrictions to raw sockets for defense-in-depth."
+  ],
+  "overall_conclusion": "The inline Snort IPS successfully stopped the active ICMP flood while complying with the constraint to keep the compromised host in place. However, it produced collateral connectivity loss, so the mitigation is a functional success for attack prevention but requires immediate follow-up: verify IPS logs, identify whether blocking or routing caused the disruption, and tune IPS/firewall/host controls to restore legitimate traffic while retaining protection. A layered approach (IPS + firewall egress policies + host hardening) is recommended for production deployment."
+}

@@ -1,0 +1,62 @@
+{
+  "total_applied": 2,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Deploy a Snort inline IPS on the LAN side (place between the FortiGate firewall and the internal switch) so the pre-configured IPS can detect and block ICMP flood patterns and other malicious traffic automatically.",
+      "tool_calls": [
+        {
+          "operation": "delete_link",
+          "args": {
+            "link_id": "798b5e80-8fb6-48dd-8369-f132a608ef0b"
+          },
+          "link_endpoint_devices": [
+            "FortiGate7.0.14-1",
+            "cisco-switch"
+          ]
+        },
+        {
+          "operation": "add_device",
+          "args": {
+            "device_type": "snort",
+            "device_name": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "FortiGate7.0.14-1",
+            "device2_identifier": "snort-ids-1"
+          }
+        },
+        {
+          "operation": "link_devices",
+          "args": {
+            "device1_identifier": "snort-ids-1",
+            "device2_identifier": "cisco-switch"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 2,
+      "mitigation_name": "Enforce strict egress filtering and protocol whitelisting on the FortiGate firewall (allow only required outbound protocols such as HTTP(S)/DNS), and enable adaptive/rate-based DoS protections and per-host session limits to throttle or drop excessive ICMP/raw-packet flows originating from internal hosts.",
+      "tool_calls": [
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config firewall service custom\nedit \"ICMP\"\nset protocol ICMP\nnext\nend\nconfig firewall policy\nedit 0\nset name \"deny_icmp_outbound\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"all\"\nset dstaddr \"all\"\nset action deny\nset schedule \"always\"\nset service \"ICMP\"\nset logtraffic all\nnext\nend\nconfig firewall policy\nedit 0\nset name \"allow_outbound_web_dns\"\nset srcintf \"port2\"\nset dstintf \"port1\"\nset srcaddr \"all\"\nset dstaddr \"all\"\nset action accept\nset schedule \"always\"\nset service \"HTTP\" \"HTTPS\" \"DNS\"\nset nat enable\nset logtraffic all\nnext\nend"
+          }
+        },
+        {
+          "operation": "send_command",
+          "args": {
+            "device_identifier": "FortiGate7.0.14-1",
+            "command": "config system interface\nedit \"port2\"\nset allowaccess ping\nnext\nend\nconfig system session-ttl\nset default 3600\nend\nconfig system dos-policy\nedit 1\nset status enable\nset interface \"port1\"\nset srcip {192.168.1.3}\nset action block\nset block-period 60\nset udp enable\nset icmp enable\nnext\nend"
+          }
+        }
+      ]
+    }
+  ]
+}
