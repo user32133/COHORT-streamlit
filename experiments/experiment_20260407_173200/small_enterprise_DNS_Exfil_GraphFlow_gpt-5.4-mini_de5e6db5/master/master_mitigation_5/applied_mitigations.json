@@ -1,0 +1,211 @@
+{
+  "total_applied": 4,
+  "mitigations": [
+    {
+      "mitigation_number": 1,
+      "mitigation_name": "Harden the Ubuntu host's egress DNS behavior by forcing all DNS resolution through the internal firewall/resolver and blocking direct external DNS queries from the host",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ip route"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ls -l /etc/resolv.conf && cat /etc/resolv.conf && ls -l /run/systemd/resolve/resolv.conf 2>/dev/null || true"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "printf 'nameserver 192.168.1.1\\noptions timeout:1 attempts:2\\n' > /etc/resolv.conf && chmod 644 /etc/resolv.conf && cat /etc/resolv.conf"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "python3 - <<'PY'\nfrom pathlib import Path\np = Path('/etc/resolv.conf')\np.write_text('nameserver 192.168.1.1\\noptions timeout:1 attempts:2\\n')\np.chmod(0o644)\nprint(p.read_text(), end='')\nPY"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "getent ahosts google.com | head -3 && ping -c 1 -W 1 192.168.1.2 >/dev/null && echo LAN_PING_OK && wget -q -T 4 --tries=1 -O /dev/null http://1.1.1.1 && echo HTTP_OK"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "iptables -I OUTPUT 1 -p udp --dport 8853 -d 203.0.113.1 -j REJECT && iptables -I OUTPUT 1 -p tcp --dport 8853 -d 203.0.113.1 -j REJECT && iptables -L OUTPUT -n --line-numbers | sed -n '1,12p'"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ping -c 1 -W 1 192.168.1.2 >/dev/null && echo LAN_PING_OK; wget -q -T 4 --tries=1 -O /dev/null http://1.1.1.1 && echo HTTP_OK; (echo >/dev/udp/203.0.113.1/8853) >/dev/null 2>&1; echo DNS8853_TEST_DONE"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 3,
+      "mitigation_name": "Disable or tightly restrict access to high-risk attacker utilities on the compromised Ubuntu host, such as dnsutils, curl, nmap, and hping3, while preserving ping and wget",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 000 /usr/bin/dig /usr/bin/nslookup /usr/bin/nmap /usr/bin/hping3 2>/dev/null; chmod 755 /usr/bin/wget /usr/bin/ping 2>/dev/null; ls -l /usr/bin/dig /usr/bin/nslookup /usr/bin/nmap /usr/bin/hping3 /usr/bin/wget /usr/bin/ping"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "command -v hping3; command -v curl; command -v dig; command -v nslookup; command -v nmap; command -v wget; command -v ping"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 000 /usr/sbin/hping3 /usr/bin/curl /usr/bin/dig /usr/bin/nslookup /usr/bin/nmap; ls -l /usr/sbin/hping3 /usr/bin/curl /usr/bin/dig /usr/bin/nslookup /usr/bin/nmap /usr/bin/wget /usr/bin/ping"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 000 /usr/sbin/hping3 /usr/bin/curl /usr/bin/dig /usr/bin/nslookup /usr/bin/nmap; ls -l /usr/sbin/hping3 /usr/bin/curl /usr/bin/dig /usr/bin/nslookup /usr/bin/nmap /usr/bin/ping /usr/bin/wget; command -v hping3; command -v curl; command -v dig; command -v nslookup; command -v nmap; command -v ping; command -v wget"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 4,
+      "mitigation_name": "Harden local file and directory permissions on sensitive paths so the unprivileged attacker account cannot read candidate staging or data collection locations",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id && ls -ld /usr/share/pixmaps /usr/share/icons /usr/share/icons/Humanity/emblems/16 /usr/share/icons/ubuntu-mono-light/stock/64 2>/dev/null && stat -c '%a %U %G %n' /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png 2>/dev/null"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 0640 /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png && chown root:root /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png && stat -c '%a %U %G %n' /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png && ls -l /usr/share/pixmaps/ubuntu-logo-text-dark.png /usr/share/pixmaps/ubuntu-logo-text.png /usr/share/pixmaps/debian-logo.png /usr/share/icons/ubuntu-mono-light/stock/64/album_artwork.png /usr/share/icons/Humanity/emblems/16/emblem-ohno.png"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "find /usr/bin /bin /usr/local/bin -maxdepth 1 \\( -name dig -o -name nslookup -o -name host -o -name curl -o -name wget \\) -type f -exec ls -l {} \\;"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "chmod 000 /usr/bin/dig /usr/bin/nslookup /usr/bin/host /usr/bin/curl && stat -c '%a %U %G %n' /usr/bin/dig /usr/bin/nslookup /usr/bin/host /usr/bin/curl /usr/bin/wget"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "id agent 2>/dev/null || true; ls -l /usr/bin/dig /usr/bin/nslookup /usr/bin/host /usr/bin/curl /usr/bin/wget"
+          }
+        }
+      ]
+    },
+    {
+      "mitigation_number": 5,
+      "mitigation_name": "Restrict outbound DNS from the Ubuntu host to the approved recursive resolver only, preventing direct DNS tunneling to external infrastructure while preserving ICMP and HTTP validation traffic",
+      "tool_calls": [
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "nft list ruleset"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "ip route"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "nft add table inet dns_guard; nft 'add chain inet dns_guard output { type filter hook output priority 0; policy accept; }'; nft add rule inet dns_guard output udp dport 53 ip daddr != 192.168.1.1 drop; nft add rule inet dns_guard output tcp dport 53 ip daddr != 192.168.1.1 drop; nft add rule inet dns_guard output udp dport 8853 ip daddr != 192.168.1.1 drop; nft add rule inet dns_guard output tcp dport 8853 ip daddr != 192.168.1.1 drop; nft list ruleset"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "dig @203.0.113.1 -p 8853 test.example.com +time=1 +tries=1; echo EXIT:$?; dig @192.168.1.1 test.example.com +time=1 +tries=1; echo EXIT2:$?; wget -q -T 4 --tries=1 -O /dev/null http://1.1.1.1; echo WGET:$?"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "nft delete table inet dns_guard; nft add table inet dns_guard; nft 'add chain inet dns_guard output { type filter hook output priority 0; policy accept; }'; nft add rule inet dns_guard output udp dport 53 ip daddr 192.168.1.1 accept; nft add rule inet dns_guard output tcp dport 53 ip daddr 192.168.1.1 accept; nft add rule inet dns_guard output udp dport 8853 ip daddr 192.168.1.1 accept; nft add rule inet dns_guard output tcp dport 8853 ip daddr 192.168.1.1 accept; nft add rule inet dns_guard output udp dport 53 drop; nft add rule inet dns_guard output tcp dport 53 drop; nft add rule inet dns_guard output udp dport 8853 drop; nft add rule inet dns_guard output tcp dport 8853 drop; nft list ruleset"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "nft insert rule inet dns_guard output udp dport 53 ip daddr 192.168.1.1 accept; nft insert rule inet dns_guard output tcp dport 53 ip daddr 192.168.1.1 accept; nft insert rule inet dns_guard output udp dport 8853 ip daddr 192.168.1.1 accept; nft insert rule inet dns_guard output tcp dport 8853 ip daddr 192.168.1.1 accept; nft list ruleset"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "nft delete table inet dns_guard"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "nft add table inet dns_guard; nft 'add chain inet dns_guard output { type filter hook output priority 0; policy accept; }'; nft add rule inet dns_guard output ip daddr 192.168.1.1 udp dport 53 accept; nft add rule inet dns_guard output ip daddr 192.168.1.1 tcp dport 53 accept; nft add rule inet dns_guard output udp dport 53 drop; nft add rule inet dns_guard output tcp dport 53 drop; nft add rule inet dns_guard output ip daddr 192.168.1.1 udp dport 8853 accept; nft add rule inet dns_guard output ip daddr 192.168.1.1 tcp dport 8853 accept; nft add rule inet dns_guard output udp dport 8853 drop; nft add rule inet dns_guard output tcp dport 8853 drop; nft list ruleset"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "dig @192.168.1.1 test.example.com +time=1 +tries=1; echo DIG_LOCAL:$?; dig @203.0.113.1 -p 8853 test.example.com +time=1 +tries=1; echo DIG_EXT:$?; wget -q -T 4 --tries=1 -O /dev/null http://1.1.1.1; echo WGET:$?; ping -c 1 -W 1 192.168.1.2; echo PING:$?"
+          }
+        },
+        {
+          "operation": "send_command_to_device",
+          "args": {
+            "device_identifier": "UbuntuComputer",
+            "command": "nft delete table inet dns_guard; nft add table inet dns_guard; nft 'add chain inet dns_guard output { type filter hook output priority 0; policy accept; }'; nft add rule inet dns_guard output oifname \"eth0\" ip daddr 192.168.1.1 udp dport 53 accept; nft add rule inet dns_guard output oifname \"eth0\" ip daddr 192.168.1.1 tcp dport 53 accept; nft add rule inet dns_guard output oifname \"eth1\" udp dport 53 drop; nft add rule inet dns_guard output oifname \"eth1\" tcp dport 53 drop; nft add rule inet dns_guard output oifname \"eth1\" udp dport 8853 drop; nft add rule inet dns_guard output oifname \"eth1\" tcp dport 8853 drop; nft list ruleset"
+          }
+        }
+      ]
+    }
+  ]
+}
